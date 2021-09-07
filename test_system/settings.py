@@ -28,9 +28,6 @@ else:
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-#k^$qbx9je7+(sv@i7b(tp(g2$6rns%%&fz-135kl+7#*@%%77'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
 ALLOWED_HOSTS = ['121.40.84.189', '127.0.0.1', 'localhost']
 
 
