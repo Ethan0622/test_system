@@ -45,7 +45,8 @@ INSTALLED_APPS = [
     'rest_framework',
 
     'users.apps.UsersConfig',
-    'itembank.apps.ItembankConfig'
+    'itembank.apps.ItembankConfig',
+    'testing.apps.TestingConfig'
 ]
 
 AUTH_USER_MODEL = 'users.MyUser'

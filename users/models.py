@@ -43,6 +43,7 @@ class MyUser(AbstractBaseUser):
     email = models.EmailField(verbose_name='user-email',
                               max_length=255,
                               default='')
+    init_ability = models.FloatField(verbose_name='初始化能力值', null=True)
     is_active = models.BooleanField(default=True)
     is_admin = models.BooleanField(default=False)
 

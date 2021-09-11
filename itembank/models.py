@@ -1,4 +1,3 @@
-from os import truncate
 from django.db import models
 
 
