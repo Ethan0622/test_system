@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 
 from .models import MyUser
-from .serializer import UserSerializer
+from .serializers import UserSerializer
 
 
 class userListView(APIView):
