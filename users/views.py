@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import AllowAny
 
 from .models import MyUser
@@ -9,10 +9,11 @@ from .serializers import UserSerializer
 
 
 class userListView(APIView):
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = (AllowAny,)
     '''
     获取所有用户信息&加入新用户
     '''
-    permission_classes = (AllowAny,)
     def get(self, req):
         qs = MyUser.objects.all()
         allUser = UserSerializer(instance=qs, many=True)

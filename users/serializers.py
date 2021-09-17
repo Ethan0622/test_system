@@ -1,3 +1,4 @@
+from django.contrib.auth.hashers import make_password
 from rest_framework import serializers
 from .models import MyUser
 
@@ -15,9 +16,10 @@ class UserSerializer(serializers.ModelSerializer):
 
     # 可修改字段：密码；真实姓名；邮箱
     def update(self, instance, validated_data):
-        instance.number = instance.number
-        instance.password = instance.set_password(
-            validated_data.get('password')) or instance.password
+        if ('password' in validated_data):
+            instance.password = make_password(validated_data.get('password'))
+        else:
+            instance.password = instance.password
         instance.realname = validated_data.get('realname') or instance.realname
         instance.email = validated_data.get('email') or instance.email
         instance.save()
