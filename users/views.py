@@ -14,6 +14,7 @@ class userListView(APIView):
     '''
     获取所有用户信息&加入新用户
     '''
+
     def get(self, req):
         qs = MyUser.objects.all()
         allUser = UserSerializer(instance=qs, many=True)
@@ -31,6 +32,7 @@ class userDetailView(APIView):
     '''
     指定id的数据查询、修改、删除
     '''
+
     def get(self, req, pk):
         try:
             user = MyUser.objects.get(id=pk)
@@ -45,6 +47,10 @@ class userDetailView(APIView):
             user = MyUser.objects.get(id=pk)
         except MyUser.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
+
+        # 若不修改密码，则删除请求体中的数据，以便通过数据校验
+        if ('password' in req.data and req.data['password'] == ''):
+            del req.data['password']
 
         updateUser = UserSerializer(instance=user, data=req.data, partial=True)
         if (updateUser.is_valid(raise_exception=True)):

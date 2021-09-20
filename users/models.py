@@ -38,11 +38,15 @@ class MyUser(AbstractBaseUser):
         validators=[MinValueValidator(0),
                     MaxValueValidator(1)])
     realname = models.CharField(verbose_name='user-real-name',
-                                default='',
-                                max_length=100)
+                                null=True,
+                                blank=True,
+                                max_length=100,
+                                default=None)
     email = models.EmailField(verbose_name='user-email',
                               max_length=255,
-                              default='')
+                              null=True,
+                              blank=True,
+                              default=None)
     init_ability = models.FloatField(verbose_name='初始化能力值', null=True)
     is_active = models.BooleanField(default=True)
     is_admin = models.BooleanField(default=False)
