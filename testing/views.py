@@ -7,8 +7,8 @@ from catsim.estimation import NumericalSearchEstimator
 
 from users.utils import decodeToken
 from .utils import getItemBydiffculty, getUsedItems, indexMap, switchNumpy, separateTuple
-from .models import TestInfo, ObjectTestProcess
-from .serializers import TestInfoSerializer, ObjTestProcessSerializer, ItemInfoSerializer, ItemsPartSerializer
+from .models import InitTestProcess, TestInfo, ObjectTestProcess
+from .serializers import TestInfoSerializer, ObjTestProcessSerializer, InitTestProcessSerializer, ItemInfoSerializer, ItemsPartSerializer
 from users.models import MyUser
 from itembank.models import TestItems
 
@@ -45,7 +45,7 @@ class TestInfoDetailView(APIView):
 
 
 class TestProcessView(APIView):
-    # 考试过程中做题的记录
+    # 正式考试过程中做题的记录
     def post(self, req):
         user_id = decodeToken(req)['user_id']
         item_id = req.data['item_id']
@@ -101,3 +101,35 @@ class TestProcessView(APIView):
                 }, status.HTTP_201_CREATED)
 
         return Response(recordTest.errors, status.HTTP_400_BAD_REQUEST)
+
+
+class InitTestProcessView(APIView):
+    # 第一次考试，初始能力评估阶段答题处理
+    def post(self, req):
+        user_id = decodeToken(req)['user_id']
+        item_id = req.data['item_id']
+        item = TestItems.objects.filter(id=item_id).values()
+        if item[0]['correct'] == req.data['answer']:
+            judge = True
+        else:
+            judge = False
+        req.data['judge'] = judge
+        recordInitTest = InitTestProcessSerializer(data=req.data)
+        if recordInitTest.is_valid(raise_exception=True):
+            recordInitTest.save()
+
+        InitTested = InitTestProcess.objects.filter(
+            test_id=req.data['test_id']).values()
+        if (len(InitTested) == 5):
+            trueCount = 0
+            for testesInfo in InitTested:
+                if testesInfo['judge'] == True:
+                    trueCount += 1
+            print(trueCount)
+        else:
+            # 所有选择题
+            ChoiceItems = TestItems.objects.filter(type=1).values()
+            # 选择题由易到难排序后
+            sortChoiceItems = sorted(ChoiceItems, key=lambda x: x['diffculty'])
+
+        return Response(status=status.HTTP_200_OK)

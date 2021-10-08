@@ -17,6 +17,18 @@ class itemListView(APIView):
         return Response(createItem.errors, status.HTTP_400_BAD_REQUEST)
 
 
+class itemListTypeView(APIView):
+    # 查看指定类型的题目
+    def get(self, req, pk):
+        print(pk)
+        if (pk < 1 or pk > 3):
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        else:
+            typeItemQS = TestItems.objects.filter(type=pk)
+            typeItemList = itemsAllSerializer(instance=typeItemQS, many=True)
+            return Response(typeItemList.data, status.HTTP_200_OK)
+
+
 class itemDetailView(APIView):
     # 获取、修改、删除指定id试题
     def get(self, req, pk):

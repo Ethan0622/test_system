@@ -1,3 +1,4 @@
+from django.db.models import fields
 from rest_framework import serializers
 from .models import TestInfo, InitTestProcess, ObjectTestProcess
 from itembank.models import TestItems
@@ -12,6 +13,12 @@ class TestInfoSerializer(serializers.ModelSerializer):
 class ObjTestProcessSerializer(serializers.ModelSerializer):
     class Meta:
         model = ObjectTestProcess
+        fields = "__all__"
+
+
+class InitTestProcessSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InitTestProcess
         fields = "__all__"
 
 
