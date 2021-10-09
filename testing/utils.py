@@ -4,30 +4,33 @@ from .serializers import TestInfoSerializer, ObjTestProcessSerializer, ItemInfoS
 from itembank.models import TestItems
 
 
+# 二分查找算法
 def binarysearch(sorted_sequence, target):
     left = 0
     right = len(sorted_sequence) - 1
     while (left <= right):
         midpoint = (left + right) // 2
         current_item = sorted_sequence[midpoint]
-        if current_item['diffculty'] == target:
+        if current_item['difficulty'] == target:
             return midpoint
-        elif target < current_item['diffculty']:
+        elif target < current_item['difficulty']:
             right = midpoint - 1
         else:
             left = midpoint + 1
     return None
 
 
+# 将数据变成numpy数组
 def switchNumpy(data):
     numpyList = []
     for item in data:
         numpyList.append(
-            [item["discrimination"], item["diffculty"], item["guessing"], 1])
+            [item["discrimination"], item["difficulty"], item["guessing"], 1])
     numpyArray = numpy.array(numpyList)
     return numpyArray
 
 
+# 将元组每个元素中指定位置的数据挑出来，组成一个列表
 def separateTuple(index, tupleList):
     returnList = []
     for item in tupleList:
@@ -35,12 +38,13 @@ def separateTuple(index, tupleList):
     return returnList
 
 
-def getItemBydiffculty(b):
+# 获取难度系数为b的题目的id
+def getItemBydifficulty(b):
     qs = TestItems.objects.all()
     itemInfo = ItemInfoSerializer(qs, many=True)
     allItems = itemInfo.data
     itemsList = list(allItems)
-    sortList = sorted(itemsList, key=lambda x: x['diffculty'])
+    sortList = sorted(itemsList, key=lambda x: x['difficulty'])
     index = binarysearch(sortList, b)
     if index:
         return sortList[index]['id']
@@ -48,6 +52,7 @@ def getItemBydiffculty(b):
         return ("Error, Can't find the item")
 
 
+# 获取用户已经做过的题目以及做题信息，返回一个元组列表，元组（题目id， 题目类型， 正误）
 def getUsedItems(reqData):
     usedItems = []
     test_id = reqData['test_id']
@@ -69,13 +74,14 @@ def getUsedItems(reqData):
     return usedItems
 
 
+# 返回一个列表：已经做过所有题目在numpy数组中的位置id，用于cat计算
 def indexMap(ndarry, list):
     tupleList = []
     returnList = []
     for id in list:
-        item_diffculty = TestItems.objects.filter(
-            id=id).values()[0]['diffculty']
-        tupleList.append((id, item_diffculty))
+        item_difficulty = TestItems.objects.filter(
+            id=id).values()[0]['difficulty']
+        tupleList.append((id, item_difficulty))
     for item in tupleList:
         for i in range(0, len(ndarry)):
             if item[1] == ndarry[i][1]:

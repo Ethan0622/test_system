@@ -11,7 +11,7 @@ class TestItems(models.Model):
     # 题目区分度
     discrimination = models.FloatField(null=False)
     # 题目难度系数
-    diffculty = models.FloatField(null=False)
+    difficulty = models.FloatField(null=False)
     # 题目猜测系数
     guessing = models.FloatField(null=False)
 

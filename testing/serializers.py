@@ -36,5 +36,5 @@ class ItemInfoSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     type = serializers.IntegerField(read_only=True)
     discrimination = serializers.FloatField(read_only=True)
-    diffculty = serializers.FloatField(read_only=True)
+    difficulty = serializers.FloatField(read_only=True)
     guessing = serializers.FloatField(read_only=True)
