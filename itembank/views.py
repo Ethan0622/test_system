@@ -20,7 +20,6 @@ class itemListView(APIView):
 class itemListTypeView(APIView):
     # 查看指定类型的题目
     def get(self, req, pk):
-        print(pk)
         if (pk < 1 or pk > 3):
             return Response(status=status.HTTP_404_NOT_FOUND)
         else:
