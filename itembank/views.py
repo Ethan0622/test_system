@@ -1,4 +1,5 @@
 from rest_framework import status
+from rest_framework import response
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -28,14 +29,13 @@ class itemListTypeView(APIView):
             return Response(typeItemList.data, status.HTTP_200_OK)
 
 
-class itemDetailView(APIView):
-    # 获取、修改、删除指定id试题
+class itemInfoDetailView(APIView):
     def get(self, req, pk):
         try:
             item = TestItems.objects.get(id=pk)
         except TestItems.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        getItem = itemsPartSerializer(instance=item)
+        getItem = itemsAllSerializer(instance=item)
         return Response(getItem.data, status.HTTP_200_OK)
 
     def put(self, req, pk):
@@ -50,6 +50,17 @@ class itemDetailView(APIView):
             updateItem.save()
             return Response(updateItem.data, status.HTTP_200_OK)
         return Response(updateItem.errors, status.HTTP_400_BAD_REQUEST)
+
+
+class itemDetailView(APIView):
+    # 获取、修改、删除指定id试题
+    def get(self, req, pk):
+        try:
+            item = TestItems.objects.get(id=pk)
+        except TestItems.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        getItem = itemsPartSerializer(instance=item)
+        return Response(getItem.data, status.HTTP_200_OK)
 
     def delete(self, req, pk):
         try:
