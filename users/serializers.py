@@ -1,6 +1,7 @@
 from django.contrib.auth.hashers import make_password
 from rest_framework import serializers
 from .models import MyUser
+from testing.models import TestInfo
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -24,3 +25,10 @@ class UserSerializer(serializers.ModelSerializer):
         instance.email = validated_data.get('email') or instance.email
         instance.save()
         return instance
+
+class TestsListSerializer(serializers.Serializer):
+    test_id = serializers.IntegerField(read_only=True)
+    start_time = serializers.DateTimeField(read_only=True)
+    end_time = serializers.DateTimeField(read_only=True)
+    total_time = serializers.DurationField(read_only=True)
+    final_ability = serializers.CharField(read_only=True)

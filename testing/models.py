@@ -1,3 +1,4 @@
+from django.utils import timezone
 from django.db import models
 from django.db.models.deletion import CASCADE
 from users.models import MyUser
@@ -8,13 +9,11 @@ from itembank.models import TestItems
 class TestInfo(models.Model):
     test_id = models.AutoField(primary_key=True, unique=True, null=False)
 
-    start_time = models.TimeField(verbose_name='考试开始时间',
-                                  auto_now_add=True,
-                                  null=False)
+    start_time = models.DateTimeField(verbose_name='考试开始时间', null=False)
 
-    end_time = models.TimeField(verbose_name='考试结束时间',
-                                auto_now=True,
-                                null=True)
+    end_time = models.DateTimeField(verbose_name='考试结束时间',
+                                    default=None,
+                                    null=True)
 
     total_time = models.DurationField(verbose_name='总考试用时', null=True)
 

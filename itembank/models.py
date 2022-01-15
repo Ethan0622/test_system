@@ -1,9 +1,20 @@
+from typing import Callable
 from django.db import models
+from django.db.models.deletion import CASCADE
+
+
+class KnowledgePoints(models.Model):
+    # 所属教材哪一章（1-8）
+    chapter = models.IntegerField(null=False)
+    # 主要知识点是什么
+    content = models.CharField(max_length=255, null=False)
 
 
 class TestItems(models.Model):
     # 题目类型，暂定选择题(1)、判断题(2)、简答题(3)
     type = models.IntegerField(null=False)
+    # 对应知识点
+    knowledge_id = models.ForeignKey(KnowledgePoints, on_delete=CASCADE, default=1)
     # 题干信息
     content = models.CharField(max_length=255, null=False, unique=True)
     # 参考答案
