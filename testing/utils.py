@@ -42,13 +42,17 @@ def switch_items_numpy(usedItems, type, knowledge=None):
 
     numpyList = []
     for item in Items.data:
-        numpyList.append(
-            [item["discrimination"], item["difficulty"], item["guessing"], 1])
+        numpyList.append([
+            item["discrimination"], item["difficulty"], item["guessing"], 1,
+            item['exposure'], item['id']
+        ])
     for item in usedItems:
         item_id = item.get('item_id')
         itemInfo = TestItems.objects.get(id=item_id)
-        numpyList.append(
-            [itemInfo.discrimination, itemInfo.difficulty, itemInfo.guessing, 1])
+        numpyList.append([
+            itemInfo.discrimination, itemInfo.difficulty, itemInfo.guessing, 1,
+            itemInfo.exposure, item_id
+        ])
     # 嵌套列表去重且元素间顺序不变（因为题目列表中不能有重复题目，所以题目列表 = 选题范围 + 用户做过的题中不在选题范围里的题）
     numpyListDuplicate = [list(t) for t in set(tuple(_) for _ in numpyList)]
     numpyListDuplicate.sort(key=numpyList.index)
@@ -151,28 +155,18 @@ def update_item_difficulty(reqData):
 
 # 返回一个列表：已经做过所有题目在numpy数组中的位置id，用于CAT计算
 def index_map(ndarray, list):
-    tupleList = []
     returnList = []
-    for id in list:
-        item_difficulty = TestItems.objects.filter(id=id).values()[0]['difficulty']
-        tupleList.append((id, item_difficulty))
-    for item in tupleList:
-        for i in range(0, len(ndarray)):
-            if item[1] == ndarray[i][1]:
-                returnList.append(i)
-                break
+    adItemsIdList = ndarray[:, 5]
+    returnList = [numpy.argwhere(adItemsIdList == x)[0][0] for x in list]
     return returnList
 
 
+# 返回一个numpy数组：已经做过所有题目，用于计算是否可以终止测验
 def used_items_ndarry(ndarray, list):
-    tupleList = []
     returnList = []
     for id in list:
-        item_difficulty = TestItems.objects.filter(id=id).values()[0]['difficulty']
-        tupleList.append((id, item_difficulty))
-    for item in tupleList:
         for i in range(0, len(ndarray)):
-            if item[1] == ndarray[i][1]:
+            if id == ndarray[i][5]:
                 returnList.append(ndarray[i])
                 break
     returnNdarray = numpy.array(returnList)
@@ -203,3 +197,13 @@ def select_range(dictList):
         # 比较知识点错题量进行选题
         pass
     return returnDict
+
+
+# 更新题目的曝光系数
+def update_item_exposure(id):
+    usedCount = len(ObjectTestProcess.objects.filter(item_id=id))
+    testsTotal = len(TestInfo.objects.all())
+    exposureRate = round(usedCount / testsTotal, 3)
+    item = TestItems.objects.get(id=id)
+    item.exposure = exposureRate
+    item.save()

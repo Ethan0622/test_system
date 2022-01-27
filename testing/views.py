@@ -12,7 +12,7 @@ from catsim.estimation import NumericalSearchEstimator
 from catsim.stopping import MinErrorStopper
 
 from users.utils import decode_token
-from .utils import get_item_by_difficulty, get_used_items, index_map, switch_items_numpy, separate_dict, used_items_ndarry, select_range, update_item_difficulty
+from .utils import get_item_by_difficulty, get_used_items, index_map, switch_items_numpy, separate_dict, used_items_ndarry, select_range, update_item_difficulty, update_item_exposure
 from .models import InitTestProcess, TestInfo
 from .serializers import TestInfoStartSer, TestInfoSerializer, TestInfoFinishSer, ObjTestProcessSerializer, InitTestProcessSerializer, ItemInfoSerializer, ItemsPartSerializer
 from users.models import MyUser
@@ -39,8 +39,7 @@ class TestInfoView(APIView):
             first_item_index = selector.select(items=numpyArray,
                                                administered_items=[],
                                                est_theta=user.init_ability)
-            first_item_difficulty = numpyArray[first_item_index][1]
-            first_item_id = get_item_by_difficulty(first_item_difficulty)
+            first_item_id = numpyArray[first_item_index][5]
 
             first_item_qs = TestItems.objects.get(id=first_item_id)
             first_item = ItemsPartSerializer(first_item_qs)
@@ -115,6 +114,8 @@ class TestProcessView(APIView):
 
         usedItems = get_used_items(req.data)
 
+        update_item_exposure(item_id)
+
         selectRangeDict = select_range(usedItems)
 
         numpyArray = switch_items_numpy(usedItems, selectRangeDict['type'],
@@ -132,8 +133,7 @@ class TestProcessView(APIView):
                                           administered_items=mappedList,
                                           est_theta=pre_theta)
         if next_item_index:
-            next_item_difficulty = numpyArray[next_item_index][1]
-            next_item_id = get_item_by_difficulty(next_item_difficulty)
+            next_item_id = numpyArray[next_item_index][5]
             next_item_qs = TestItems.objects.get(id=next_item_id)
             next_item = ItemsPartSerializer(next_item_qs)
         else:
@@ -187,7 +187,7 @@ class InitTestProcessView(APIView):
         recordInitTest = InitTestProcessSerializer(data=req.data)
         if recordInitTest.is_valid(raise_exception=True):
             recordInitTest.save()
-        
+
         update_item_difficulty(req.data)
 
         InitTested = InitTestProcess.objects.filter(test_id=req.data['test_id']).values(
@@ -355,8 +355,7 @@ class TestContinueView(APIView):
             first_item_index = selector.select(items=numpyArray,
                                                administered_items=mappedList,
                                                est_theta=pre_theta)
-            first_item_difficulty = numpyArray[first_item_index][1]
-            first_item_id = get_item_by_difficulty(first_item_difficulty)
+            first_item_id = numpyArray[first_item_index][5]
             first_item_qs = TestItems.objects.get(id=first_item_id)
             next_item = ItemsPartSerializer(first_item_qs)
             return Response({"next_item": next_item.data}, status.HTTP_200_OK)

@@ -13,6 +13,19 @@ class itemsPartSerializer(serializers.Serializer):
 
 
 class itemsAllSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = TestItems
         fields = "__all__"
+
+    def validate(self, value):
+        keys = ["option_A", "option_B", "option_C", "option_D"]
+        type = value.get('type')
+        if type and type == 1:
+            for item in keys:
+                if value.get(item) == None:
+                    message = '请补充完善选择题的选项'
+                    raise serializers.ValidationError(message)
+            return value
+        else:
+            return value

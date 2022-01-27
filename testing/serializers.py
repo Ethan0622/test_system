@@ -57,3 +57,4 @@ class ItemInfoSerializer(serializers.Serializer):
     discrimination = serializers.FloatField(read_only=True)
     difficulty = serializers.FloatField(read_only=True)
     guessing = serializers.FloatField(read_only=True)
+    exposure = serializers.FloatField(read_only=True)
