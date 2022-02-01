@@ -7,7 +7,7 @@ from testing.models import TestInfo
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = MyUser
-        fields = ['id', 'number', 'password', 'realname', 'type', 'email']
+        fields = ['id', 'number', 'password', 'realname', 'type', 'email', 'joined_class']
         read_only_fields = ['id']
         extra_kwargs = {'password': {'write_only': True}}
 

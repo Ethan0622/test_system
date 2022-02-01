@@ -1,9 +1,12 @@
+from django.db.models.deletion import CASCADE, SET_NULL
 from django.db import models
 from django.contrib.auth.models import (BaseUserManager, AbstractBaseUser)
 from django.core.validators import (MinValueValidator, MaxValueValidator)
+from classes.models import MyClass
 
 
 class MyUserManager(BaseUserManager):
+
     def create_user(self, number, type, password=None):
         if not number:
             raise ValueError('Users must have an school number ID')
@@ -32,11 +35,10 @@ class MyUser(AbstractBaseUser):
     number = models.CharField(verbose_name='student-ID/employee-ID',
                               max_length=60,
                               unique=True)
-    type = models.IntegerField(
-        verbose_name='user-type; 0=student; 1=teacher',
-        default=0,
-        validators=[MinValueValidator(0),
-                    MaxValueValidator(1)])
+    type = models.IntegerField(verbose_name='user-type; 0=student; 1=teacher',
+                               default=0,
+                               validators=[MinValueValidator(0),
+                                           MaxValueValidator(1)])
     realname = models.CharField(verbose_name='user-real-name',
                                 null=True,
                                 blank=True,
@@ -48,6 +50,7 @@ class MyUser(AbstractBaseUser):
                               blank=True,
                               default=None)
     init_ability = models.FloatField(verbose_name='初始化能力值', null=True)
+    joined_class = models.ForeignKey(MyClass, on_delete=SET_NULL, null=True)
     is_active = models.BooleanField(default=True)
     is_admin = models.BooleanField(default=False)
 

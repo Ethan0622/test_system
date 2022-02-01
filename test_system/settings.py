@@ -33,11 +33,11 @@ ALLOWED_HOSTS = ['121.40.84.189', '127.0.0.1', 'localhost']
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin', 'django.contrib.auth',
-    'django.contrib.contenttypes', 'django.contrib.sessions',
-    'django.contrib.messages', 'django.contrib.staticfiles', 'corsheaders',
-    'rest_framework', 'users.apps.UsersConfig', 'itembank.apps.ItembankConfig',
-    'testing.apps.TestingConfig'
+    'django.contrib.admin', 'django.contrib.auth', 'django.contrib.contenttypes',
+    'django.contrib.sessions', 'django.contrib.messages', 'django.contrib.staticfiles',
+    'corsheaders', 'rest_framework', 'users.apps.UsersConfig',
+    'itembank.apps.ItembankConfig', 'testing.apps.TestingConfig',
+    'classes.apps.ClassesConfig'
 ]
 
 AUTH_USER_MODEL = 'users.MyUser'
@@ -50,11 +50,11 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 REST_FRAMEWORK = {
-    'DATETIME_FORMAT': "%Y-%m-%d %H:%M:%S",
+    'DATETIME_FORMAT':
+    "%Y-%m-%d %H:%M:%S",
     'DEFAULT_AUTHENTICATION_CLASSES':
     ('rest_framework_jwt.authentication.JSONWebTokenAuthentication', ),
-    'DEFAULT_PERMISSION_CLASSES':
-    ('rest_framework.permissions.IsAuthenticated', )
+    'DEFAULT_PERMISSION_CLASSES': ('rest_framework.permissions.IsAuthenticated', )
 }
 
 JWT_AUTH = {
@@ -103,16 +103,13 @@ AUTH_PASSWORD_VALIDATORS = [
         'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
     {
-        'NAME':
-        'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
     },
     {
-        'NAME':
-        'django.contrib.auth.password_validation.CommonPasswordValidator',
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
     },
     {
-        'NAME':
-        'django.contrib.auth.password_validation.NumericPasswordValidator',
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
 
