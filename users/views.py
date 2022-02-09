@@ -39,10 +39,10 @@ class userLoginJWTView(APIView):
         如果还有在进行的测试，则返回剩余时间最多的那条测试记录
         '''
         unfinished_test_id = None
-        testsInfo = TestInfo.objects.filter(user_id=user.id)
+        tests_info_qs = TestInfo.objects.filter(user_id=user.id)
         now_time = datetime.now()
-        totalTimeList = []
-        for item in testsInfo:
+        total_time_list = []
+        for item in tests_info_qs:
             if (not item.end_time):
                 if ((now_time - item.start_time) > timedelta(hours=2)):
                     autoFinishTest = TestInfoFinishSer(
@@ -50,15 +50,15 @@ class userLoginJWTView(APIView):
                     if autoFinishTest.is_valid(raise_exception=True):
                         autoFinishTest.save()
                 else:
-                    totalTimeList.append({
+                    total_time_list.append({
                         'id': item.test_id,
                         'time': (now_time - item.start_time)
                     })
 
-        if len(totalTimeList):
-            unfinished_test_id = min(totalTimeList, key=lambda x: x['time'])['id']
-            unfinishedTest = TestInfo.objects.get(test_id=unfinished_test_id)
-            unfinished_test = TestInfoSerializer(unfinishedTest)
+        if len(total_time_list):
+            unfinished_test_id = min(total_time_list, key=lambda x: x['time'])['id']
+            unfinished_test_obj = TestInfo.objects.get(test_id=unfinished_test_id)
+            unfinished_test = TestInfoSerializer(unfinished_test_obj)
         else:
             unfinished_test = None
 
@@ -74,31 +74,33 @@ class userListView(APIView):
     '''
     获取所有用户信息&加入新用户
     '''
+
     def get(self, req):
-        qs = MyUser.objects.all()
-        allUser = UserSerializer(instance=qs, many=True)
-        return Response(allUser.data)
+        all_user_qs = MyUser.objects.all()
+        all_user = UserSerializer(instance=all_user_qs, many=True)
+        return Response(all_user.data)
 
     def post(self, req):
-        createUser = UserSerializer(data=req.data)
-        if createUser.is_valid(raise_exception=True):
-            createUser.save()
-            return Response(createUser.data, status=status.HTTP_201_CREATED)
-        return Response(createUser.errors, status=status.HTTP_400_BAD_REQUEST)
+        create_user = UserSerializer(data=req.data)
+        if create_user.is_valid(raise_exception=True):
+            create_user.save()
+            return Response(create_user.data, status=status.HTTP_201_CREATED)
+        return Response(create_user.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class userDetailView(APIView):
     '''
     指定id的数据查询、修改、删除
     '''
+
     def get(self, req, pk):
         try:
             user = MyUser.objects.get(id=pk)
         except MyUser.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-        getUser = UserSerializer(instance=user)
-        return Response(getUser.data, status.HTTP_200_OK)
+        get_user = UserSerializer(instance=user)
+        return Response(get_user.data, status.HTTP_200_OK)
 
     def put(self, req, pk):
         try:
@@ -110,11 +112,11 @@ class userDetailView(APIView):
         if ('password' in req.data and req.data['password'] == ''):
             del req.data['password']
 
-        updateUser = UserSerializer(instance=user, data=req.data, partial=True)
-        if (updateUser.is_valid(raise_exception=True)):
-            updateUser.save()
-            return Response(updateUser.data, status=status.HTTP_200_OK)
-        return Response(updateUser.errors, status=status.HTTP_400_BAD_REQUEST)
+        update_user = UserSerializer(instance=user, data=req.data, partial=True)
+        if (update_user.is_valid(raise_exception=True)):
+            update_user.save()
+            return Response(update_user.data, status=status.HTTP_200_OK)
+        return Response(update_user.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, req, pk):
         try:
@@ -127,13 +129,14 @@ class userDetailView(APIView):
 
 
 class checkUserTestsView(APIView):
+
     def get(self, req):
         unfinished_test_id = None
         now_time = datetime.now()
         user_id = decode_token(req)['user_id']
-        testsInfo = TestInfo.objects.filter(user_id=user_id)
-        totalTimeList = []
-        for item in testsInfo:
+        tests_info_qs = TestInfo.objects.filter(user_id=user_id)
+        total_time_list = []
+        for item in tests_info_qs:
             if (not item.end_time):
                 if ((now_time - item.start_time) > timedelta(hours=2)):
                     autoFinishTest = TestInfoFinishSer(
@@ -141,29 +144,28 @@ class checkUserTestsView(APIView):
                     if autoFinishTest.is_valid(raise_exception=True):
                         autoFinishTest.save()
                 else:
-                    totalTimeList.append({
+                    total_time_list.append({
                         'id': item.test_id,
                         'time': (now_time - item.start_time)
                     })
 
-        if len(totalTimeList):
-            unfinished_test_id = min(totalTimeList, key=lambda x: x['time'])['id']
-            unfinishedTest = TestInfo.objects.get(test_id=unfinished_test_id)
-            unfinished_test = TestInfoSerializer(unfinishedTest)
+        if len(total_time_list):
+            unfinished_test_id = min(total_time_list, key=lambda x: x['time'])['id']
+            unfinished_test_obj = TestInfo.objects.get(test_id=unfinished_test_id)
+            unfinished_test = TestInfoSerializer(unfinished_test_obj)
             unfinished_test_info = {
                 key: val
                 for key, val in unfinished_test.data.items()
-                if key == 'test_id' or key == 'start_time'
+                if key == 'test_id' or key == 'start_time' or key == 'finish_object_test'
             }
-            return Response(
-                {
-                    'unfinishTest': True,
-                    'unfinished_test': unfinished_test_info
-                }, status.HTTP_200_OK)
+            return Response({
+                'isUnfinished': True,
+                'unfinishedInfo': unfinished_test_info
+            }, status.HTTP_200_OK)
         else:
             return Response({
-                'unfinishTest': False,
-                'unfinished_test': {}
+                'isUnfinished': False,
+                'unfinishedInfo': {}
             }, status.HTTP_200_OK)
 
 
@@ -171,12 +173,13 @@ class userTestsListView(APIView):
     '''
     查询一个学生全部的测验记录
     '''
+
     def get(self, req):
         try:
             user_id = decode_token(req)['user_id']
-            testsList = TestInfo.objects.filter(user_id=user_id)
+            tests_list = TestInfo.objects.filter(user_id=user_id)
         except TestInfo.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-        getTestsList = TestsListSerializer(instance=testsList, many=True)
-        return Response(getTestsList.data, status.HTTP_200_OK)
+        get_tests_list = TestsListSerializer(instance=tests_list, many=True)
+        return Response(get_tests_list.data, status.HTTP_200_OK)

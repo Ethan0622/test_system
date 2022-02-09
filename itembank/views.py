@@ -6,14 +6,14 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 
-from .models import TestItems
-from .serializers import itemsAllSerializer, itemsPartSerializer
+from .models import TestItems, ItemType
+from .serializers import ItemsAllSerializer, ItemsPartSerializer, ItemTypeSerializer
 
 
 class itemListView(APIView):
     # 新增试题
     def post(self, req):
-        createItem = itemsAllSerializer(data=req.data)
+        createItem = ItemsAllSerializer(data=req.data)
         if createItem.is_valid(raise_exception=True):
             createItem.save()
             return Response(createItem.data, status.HTTP_201_CREATED)
@@ -23,12 +23,13 @@ class itemListView(APIView):
 class itemListTypeView(APIView):
     # 查看指定类型的题目
     def get(self, req, pk):
-        if (pk < 1 or pk > 3):
+        try:
+            typeExist = ItemType.objects.get(id=pk)
+        except ItemType.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        else:
-            typeItemQS = TestItems.objects.filter(type=pk)
-            typeItemList = itemsAllSerializer(instance=typeItemQS, many=True)
-            return Response(typeItemList.data, status.HTTP_200_OK)
+        typeItemQS = TestItems.objects.filter(type=pk)
+        typeItemList = ItemsAllSerializer(instance=typeItemQS, many=True)
+        return Response(typeItemList.data, status.HTTP_200_OK)
 
 
 class itemInfoDetailView(APIView):
@@ -39,7 +40,7 @@ class itemInfoDetailView(APIView):
             item = TestItems.objects.get(id=pk)
         except TestItems.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        getItem = itemsAllSerializer(instance=item)
+        getItem = ItemsAllSerializer(instance=item)
         return Response(getItem.data, status.HTTP_200_OK)
 
     def put(self, req, pk):
@@ -47,7 +48,7 @@ class itemInfoDetailView(APIView):
             item = TestItems.objects.get(id=pk)
         except TestItems.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        updateItem = itemsAllSerializer(instance=item, data=req.data, partial=True)
+        updateItem = ItemsAllSerializer(instance=item, data=req.data, partial=True)
         if updateItem.is_valid(raise_exception=True):
             updateItem.save()
             return Response(updateItem.data, status.HTTP_200_OK)
@@ -69,7 +70,7 @@ class itemDetailView(APIView):
             item = TestItems.objects.get(id=pk)
         except TestItems.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        getItem = itemsPartSerializer(instance=item)
+        getItem = ItemsPartSerializer(instance=item)
         return Response(getItem.data, status.HTTP_200_OK)
 
 
@@ -98,7 +99,7 @@ class itemsFileUploadView(APIView):
             elif row[0] != 1:
                 row = row[:5]
             itemInfo = dict(zip(item_key, row))
-            createItem = itemsAllSerializer(data=itemInfo)
+            createItem = ItemsAllSerializer(data=itemInfo)
             if createItem.is_valid():
                 pass
             else:
@@ -110,11 +111,11 @@ class itemsFileUploadView(APIView):
         if len(createErrors):
             return Response({'errors': createErrors}, status.HTTP_400_BAD_REQUEST)
         else:
-            # for i in range(1, rows):
-            #     row = table.row_values(i)
-            #     row = row[:5] if row[0] != 1 else row
-            #     itemInfo = dict(zip(item_key, row))
-            #     createItem = itemsAllSerializer(data=itemInfo)
-            #     createItem.is_valid()
-            #     createItem.save()
+            for i in range(1, rows):
+                row = table.row_values(i)
+                row = row[:5] if row[0] != 1 else row
+                itemInfo = dict(zip(item_key, row))
+                createItem = ItemsAllSerializer(data=itemInfo)
+                createItem.is_valid()
+                createItem.save()
             return Response({'msg': '所有题目保存完成'}, status=status.HTTP_200_OK)

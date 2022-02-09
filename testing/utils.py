@@ -1,8 +1,9 @@
 import numpy, math
 from random import choice
-from .models import TestInfo, ObjectTestProcess, InitTestProcess
+from .models import SubjectTestProcess, TestInfo, ObjectTestProcess, InitTestProcess
+from itembank.models import TestItems, ItemType
 from .serializers import TestInfoSerializer, ObjTestProcessSerializer, ItemInfoSerializer
-from itembank.models import TestItems
+from itembank.serializers import ItemTypeSerializer
 
 
 # 二分查找算法
@@ -22,20 +23,24 @@ def binary_search(sorted_sequence, target):
 
 
 # 将题目信息列表变成numpy数组，可以根据题目类型及题目对应知识点id挑选特定题目
-# usedItems和type必填，type可取值范围['subject', 'object', 1, 2, 3]
+# usedItems和type必填，type可取值范围['subject', 'object', 1, 2, 3, 4, 5]
 def switch_items_numpy(usedItems, type, knowledge=None):
+    objectIdQS = ItemType.objects.filter(is_subject=False).values('id')
+    subjectIdQS = ItemType.objects.filter(is_subject=True).values('id')
+    objectId = [x['id'] for x in objectIdQS]
+    subjectId = [x['id'] for x in subjectIdQS]
     if knowledge:
         if type == 'subject':
-            itemsQS = TestItems.objects.filter(type__in=[3], knowledge_id=knowledge)
+            itemsQS = TestItems.objects.filter(type__in=subjectId, knowledge_id=knowledge)
         elif type == 'object':
-            itemsQS = TestItems.objects.filter(type__in=[1, 2], knowledge_id=knowledge)
+            itemsQS = TestItems.objects.filter(type__in=objectId, knowledge_id=knowledge)
         else:
             itemsQS = TestItems.objects.filter(type=type, knowledge_id=knowledge)
     else:
         if type == 'subject':
-            itemsQS = TestItems.objects.filter(type__in=[3])
+            itemsQS = TestItems.objects.filter(type__in=subjectId)
         elif type == 'object':
-            itemsQS = TestItems.objects.filter(type__in=[1, 2])
+            itemsQS = TestItems.objects.filter(type__in=objectId)
         else:
             itemsQS = TestItems.objects.filter(type=type)
     Items = ItemInfoSerializer(itemsQS, many=True)
@@ -94,18 +99,18 @@ def get_item_by_difficulty(b):
         return ("Error, the item do not exist.")
 
 
-# 获取用户已经做过的题目以及做题信息，返回一个字典列表，字典{题目id，题目类型，题目对应知识点，正误}
-def get_used_items(reqData):
-    usedItems = []
-    # 不管是正常做题还是中途推出过继续做题，这之前的做题记录都要查到并返回
+# 获取用户已经做过的客观题以及做题信息，返回一个字典列表，字典{客观题id，题目类型，题目对应知识点，正误}
+def get_used_obj_items(reqData):
+    usedObjItems = []
+    # 不管是正常做题还是中途推出过继续做题，这之前的客观题做题记录都要查到并返回
     test_id = reqData.get('test_id') or reqData.get('unfinished_test_id')
 
     ItemsQS = ObjectTestProcess.objects.filter(test_id=test_id)
     for i in ItemsQS:
         item = TestItems.objects.get(id=i.item_id.id)
-        usedItems.append({
+        usedObjItems.append({
             'item_id': item.id,
-            'item_type': item.type,
+            'item_type': item.type.id,
             'item_knowledge': item.knowledge_id.id,
             'item_judge': i.judge
         })
@@ -115,14 +120,41 @@ def get_used_items(reqData):
         latest_item = TestItems.objects.get(id=latest_item_id)
         judge = True if latest_item.correct == reqData['answer'] else False
 
-        usedItems.append({
+        usedObjItems.append({
             'item_id': latest_item_id,
-            'item_type': latest_item.type,
+            'item_type': latest_item.type.id,
             'item_knowledge': latest_item.knowledge_id.id,
             'item_judge': judge
         })
 
-    return usedItems
+    return usedObjItems
+
+
+# 获取用户已经做过的主观题以及做题信息，返回一个字典列表，字典{客观题id，题目类型，题目对应知识点}
+def get_used_sbj_items(reqData):
+    usedSbjItems = []
+    # 不管是正常做题还是中途推出过继续做题，这之前的主观题做题记录都要查到并返回
+    test_id = reqData.get('test_id') or reqData.get('unfinished_test_id')
+    ItemsQS = SubjectTestProcess.objects.filter(test_id=test_id)
+    for i in ItemsQS:
+        item = TestItems.objects.get(id=i.item_id.id)
+        usedSbjItems.append({
+            'item_id': item.id,
+            'item_type': item.type.id,
+            'item_knowledge': item.knowledge_id.id,
+        })
+    # 如果是正常做题，还要把本次提交的主观题添加到返回值中
+    if reqData.get('unfinished_test_id') == None:
+        latest_item_id = reqData['item_id']
+        latest_item = TestItems.objects.get(id=latest_item_id)
+
+        usedSbjItems.append({
+            'item_id': latest_item_id,
+            'item_type': latest_item.type.id,
+            'item_knowledge': latest_item.knowledge_id.id,
+        })
+
+    return usedSbjItems
 
 
 # 更新题目的难度系数b，前提是该题被用过5次以上，且并不是全对或全错
@@ -174,7 +206,7 @@ def used_items_ndarry(ndarray, list):
 
 
 # 根据目前答题情况分析得出，需要返回的挑选的题目条件（何种类型、何种知识点）
-def select_range(dictList):
+def obj_select_range(dictList):
     knowledgeList = []
     KnowledgeCount = {}
     typeList = []
@@ -183,7 +215,7 @@ def select_range(dictList):
     for item in dictList:
         knowledgeList.append(item.get('item_knowledge'))
         typeList.append(item.get('item_type'))
-    for i in range(1, 4):
+    for i in range(1, 3):
         typeCount[i] = typeList.count(i)
     for i in range(1, 9):
         KnowledgeCount[i] = knowledgeList.count(i)
@@ -197,6 +229,42 @@ def select_range(dictList):
         # 比较知识点错题量进行选题
         pass
     return returnDict
+
+
+def select_sbj_item(dictList):
+    knowledgeList = []
+    KnowledgeCount = {}
+    typeList = []
+    typeCount = {}
+    for item in dictList:
+        knowledgeList.append(item.get('item_knowledge'))
+        typeList.append(item.get('item_type'))
+    for i in range(3, 6):
+        typeCount[i] = typeList.count(i)
+    for i in range(1, 9):
+        KnowledgeCount[i] = knowledgeList.count(i)
+    non_knowledgeList = [x[0] for x in KnowledgeCount.items() if x[1] <= 0]
+    if typeCount[3] < 4:
+        # 选4道名词解释
+        testedId = [x['item_id'] for x in dictList if x['item_type'] == 3]
+        mcjs = list(TestItems.objects.filter(type=3).values('id', 'type', 'knowledge_id'))
+        unTestedmcjs = [x for x in mcjs if x['id'] not in testedId]
+        return choice(unTestedmcjs)['id']
+    elif typeCount[4] < 2:
+        # 选2道简答题
+        testedId = [x['item_id'] for x in dictList if x['item_type'] == 4]
+        jd = list(TestItems.objects.filter(type=4).values('id', 'type', 'knowledge_id'))
+        unTestedjd = [x for x in jd if x['id'] not in testedId]
+        return choice(unTestedjd)['id']
+    elif typeCount[5] < 1:
+        # 选1道论述题
+        testedId = [x['item_id'] for x in dictList if x['item_type'] == 5]
+        ls = list(TestItems.objects.filter(type=5).values('id', 'type', 'knowledge_id'))
+        unTestedls = [x for x in ls if x['id'] not in testedId]
+        return choice(unTestedls)['id']
+    else:
+        # 考试结束
+        return None
 
 
 # 更新题目的曝光系数

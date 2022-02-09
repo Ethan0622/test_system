@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth.hashers import make_password
 
+from datetime import datetime, timedelta
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -10,8 +11,10 @@ from rest_framework.decorators import api_view, permission_classes
 from .models import MyClass
 from .serializers import ClassListSerializer
 from users.serializers import UserSerializer
+from testing.serializers import TestInfoPartSerializer, SbjTestProcessDetailSerializer, SbjTestProcessSerializer
 from users.utils import decode_token
 from users.models import MyUser
+from testing.models import SubjectTestProcess, TestInfo
 from .utils import generate_invitation_code
 
 
@@ -113,7 +116,7 @@ class classStudentView(APIView):
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
-    # 教师将某个学生提出班级
+    # 教师将某个学生踢出班级
     def delete(self, req, pk):
         student_id = req.data['student_id']
         student = MyUser.objects.get(id=student_id)
@@ -127,7 +130,36 @@ class classStudentView(APIView):
 
 # 单个班级的操作路由
 class classDetailView(APIView):
+    # pk指某个班级id
     permission_classes = (IsAdminUser, )
+
+    # 获取某个学生的全部考试信息
+    def get(self, req, pk):
+        student_id = int(req.GET.get('student_id'))
+        student = MyUser.objects.get(id=student_id)
+        if student.type == 0 and student.joined_class.id == pk:
+            all_tests_qs = TestInfo.objects.filter(user_id=student_id)
+            now_time = datetime.now()
+            for item in all_tests_qs:
+                if (not item.end_time):
+                    if (not item.total_time):
+                        if ((now_time - item.start_time) > timedelta(hours=2)):
+                            item.total_time = timedelta(hours=2)
+                            item.save()
+                else:
+                    obj_answer_qs = SubjectTestProcess.objects.filter(
+                        test_id=item.test_id)
+                    un_grade = False
+                    for item in obj_answer_qs:
+                        if item.score == None:
+                            un_grade = True
+                            break
+
+            all_tests_qs = TestInfo.objects.filter(user_id=student_id)
+            all_test = TestInfoPartSerializer(all_tests_qs, many=True)
+            return Response(all_test.data, status.HTTP_200_OK)
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
     # 教师解散一个班级
     def delete(self, req, pk):
@@ -137,3 +169,26 @@ class classDetailView(APIView):
             return Response(status=status.HTTP_404_NOT_FOUND)
         theclass.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class classTestView(APIView):
+    # pk指考试信息id
+    permission_classes = (IsAdminUser, )
+
+    # 获取该次考试的主观题学生作答
+    def get(self, req, pk):
+        sbj_test_process_qs = SubjectTestProcess.objects.filter(test_id=pk)
+        sbj_test_process = SbjTestProcessDetailSerializer(sbj_test_process_qs, many=True)
+        return Response(sbj_test_process.data, status.HTTP_200_OK)
+
+    # 教师提交主观题批改
+    def post(self, req, pk):
+        sbjProcessId = req.data['subject_id']
+        sbjProcess = SubjectTestProcess.objects.get(id=sbjProcessId)
+        if sbjProcess.test_id.test_id == pk:
+            saveSbjScore = SbjTestProcessSerializer(sbjProcess, req.data, partial=True)
+            if saveSbjScore.is_valid(raise_exception=True):
+                saveSbjScore.save()
+                return Response(saveSbjScore.data, status.HTTP_200_OK)
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)

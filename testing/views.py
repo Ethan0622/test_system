@@ -2,7 +2,6 @@ import math
 from datetime import datetime
 from random import choice
 
-from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -12,9 +11,11 @@ from catsim.estimation import NumericalSearchEstimator
 from catsim.stopping import MinErrorStopper
 
 from users.utils import decode_token
-from .utils import get_item_by_difficulty, get_used_items, index_map, switch_items_numpy, separate_dict, used_items_ndarry, select_range, update_item_difficulty, update_item_exposure
-from .models import InitTestProcess, TestInfo
-from .serializers import TestInfoStartSer, TestInfoSerializer, TestInfoFinishSer, ObjTestProcessSerializer, InitTestProcessSerializer, ItemInfoSerializer, ItemsPartSerializer
+from .utils import get_used_obj_items, get_used_sbj_items, index_map, switch_items_numpy, separate_dict,\
+    used_items_ndarry, obj_select_range, select_sbj_item, update_item_difficulty, update_item_exposure
+from .models import InitTestProcess, ObjectTestProcess, SubjectTestProcess, TestInfo
+from .serializers import TestInfoStartSer, TestInfoSerializer, TestInfoFinishSer, ObjTestProcessSerializer,\
+    InitTestProcessSerializer, SbjTestProcessSerializer, ItemsPartSerializer
 from users.models import MyUser
 from itembank.models import TestItems
 
@@ -97,8 +98,28 @@ class TestFinishView(APIView):
         return Response(finishTest.errors, status.HTTP_400_BAD_REQUEST)
 
 
-class TestProcessView(APIView):
-    # 正式考试过程中做题的记录
+class ObjectTestProcessView(APIView):
+    # 考生完成能力测评后，正式开始客观题测试部分，此接口拿到第一道客观题
+    def get(self, req):
+        test_id = int(req.GET.get('test_id'))
+        user_id = decode_token(req)['user_id']
+        user = MyUser.objects.get(id=user_id)
+        obj_processes = ObjectTestProcess.objects.filter(test_id=test_id)
+        print(obj_processes)
+        if (not obj_processes):
+            selector = MaxInfoSelector()
+            numpyArray = switch_items_numpy([], type=1)
+            first_item_index = selector.select(items=numpyArray,
+                                               administered_items=[],
+                                               est_theta=user.init_ability)
+            first_item_id = numpyArray[first_item_index][5]
+            first_item_qs = TestItems.objects.get(id=first_item_id)
+            first_item = ItemsPartSerializer(first_item_qs)
+            return Response(first_item.data, status.HTTP_200_OK)
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+    # 正式考试过程中做题的记录，记录客观题答案并评判得分，修正能力值。接着给出下一题
     def post(self, req):
         user_id = decode_token(req)['user_id']
         item_id = req.data['item_id']
@@ -112,16 +133,16 @@ class TestProcessView(APIView):
 
         pre_theta = TestInfo.objects.get(test_id=req.data['test_id']).newest_ability
 
-        usedItems = get_used_items(req.data)
+        usedObjItems = get_used_obj_items(req.data)
 
         update_item_exposure(item_id)
 
-        selectRangeDict = select_range(usedItems)
+        selectRangeDict = obj_select_range(usedObjItems)
 
-        numpyArray = switch_items_numpy(usedItems, selectRangeDict['type'],
+        numpyArray = switch_items_numpy(usedObjItems, selectRangeDict['type'],
                                         selectRangeDict['knowledge_id'])
-        itemIdList = separate_dict('item_id', usedItems)
-        judgeList = separate_dict('item_judge', usedItems)
+        itemIdList = separate_dict('item_id', usedObjItems)
+        judgeList = separate_dict('item_judge', usedObjItems)
         mappedList = index_map(numpyArray, itemIdList)
 
         selector = MaxInfoSelector()
@@ -149,7 +170,7 @@ class TestProcessView(APIView):
         # 结束判断，依据最大标准误差<=0.2时（即累计信息量>=25）或做的题目达到40题时允许结束客观题部分
         ad_items_ndarray = used_items_ndarry(numpyArray, itemIdList)
         canStop = stopper.stop(administered_items=ad_items_ndarray, theta=after_theta)
-        if (len(usedItems) >= 40):
+        if (len(usedObjItems) >= 40):
             canStop = True
 
         update_item_difficulty(req.data)
@@ -157,6 +178,8 @@ class TestProcessView(APIView):
         # 测试过程中用户最新能力值记录保存，存于测试记录表中
         testInfo = TestInfo.objects.get(test_id=req.data['test_id'])
         testInfo.newest_ability = round(after_theta, 8)
+        if canStop:
+            testInfo.finish_object_test = True
         testInfo.save()
 
         # 测试做题记录保存
@@ -205,6 +228,9 @@ class InitTestProcessView(APIView):
             init_ability = round(init_ability_log, 8)
             user.init_ability = init_ability
             user.save()
+            test_info = TestInfo.objects.get(test_id=req.data['test_id'])
+            test_info.newest_ability = init_ability
+            test_info.save()
             return Response({
                 'init_finished': True,
                 'init_ability': init_ability
@@ -271,7 +297,7 @@ class InitTestProcessView(APIView):
 
     #未完成初始能力测试，需要继续完成时调用此get请求，只返回相应题目
     def get(self, req):
-        test_id = req.GET.get('test_id')
+        test_id = int(req.GET.get('test_id'))
         InitTested = InitTestProcess.objects.filter(test_id=test_id).values(
             'id', 'test_id', 'item_id', 'judge')
         # 所有选择题
@@ -343,23 +369,73 @@ class TestContinueView(APIView):
     def post(self, req):
         user_id = decode_token(req)['user_id']
         user = MyUser.objects.get(id=user_id)
+        unfinished_test_id = req.data['unfinished_test_id']
+        finishObjTest = TestInfo.objects.get(
+            test_id=unfinished_test_id).finish_object_test
         if (user.init_ability):
-            usedItems = get_used_items(req.data)
-            numpyArray = switch_items_numpy(usedItems, 'object')
-            itemIdList = separate_dict('item_id', usedItems)
-            mappedList = index_map(numpyArray, itemIdList)
+            if finishObjTest:
+                usedSbjItems = get_used_sbj_items(req.data)
+                selectedItemId = select_sbj_item(usedSbjItems)
+                nextSbjItem = TestItems.objects.get(id=selectedItemId)
+                nextItem = ItemsPartSerializer(nextSbjItem)
+                return Response({"next_item": nextItem.data}, status.HTTP_200_OK)
+            else:
+                usedObjItems = get_used_obj_items(req.data)
+                numpyArray = switch_items_numpy(usedObjItems, 'object')
+                itemIdList = separate_dict('item_id', usedObjItems)
+                mappedList = index_map(numpyArray, itemIdList)
 
-            test_id = req.data['unfinished_test_id']
-            pre_theta = TestInfo.objects.get(test_id=test_id).newest_ability
-            selector = MaxInfoSelector()
-            first_item_index = selector.select(items=numpyArray,
-                                               administered_items=mappedList,
-                                               est_theta=pre_theta)
-            first_item_id = numpyArray[first_item_index][5]
-            first_item_qs = TestItems.objects.get(id=first_item_id)
-            next_item = ItemsPartSerializer(first_item_qs)
-            return Response({"next_item": next_item.data}, status.HTTP_200_OK)
+                test_id = req.data['unfinished_test_id']
+                pre_theta = TestInfo.objects.get(test_id=test_id).newest_ability
+                selector = MaxInfoSelector()
+                first_item_index = selector.select(items=numpyArray,
+                                                   administered_items=mappedList,
+                                                   est_theta=pre_theta)
+                first_item_id = numpyArray[first_item_index][5]
+                first_item_qs = TestItems.objects.get(id=first_item_id)
+                next_obj_item = ItemsPartSerializer(first_item_qs)
+                return Response({"next_item": next_obj_item.data}, status.HTTP_200_OK)
         else:
             return Response({
                 'init_finished': False,
             }, status.HTTP_200_OK)
+
+
+class SubjectTestProcessView(APIView):
+    # 客观题完成后，请求该接口获取合适的主观题继续测试
+    def get(self, req):
+        test_id = int(req.GET.get('test_id'))
+        test_info = TestInfo.objects.get(test_id=test_id)
+        sbj_processes = SubjectTestProcess.objects.filter(test_id=test_id)
+        if (test_info.finish_object_test and not sbj_processes):
+            selectedItemId = select_sbj_item({})
+            nextSbjItem = TestItems.objects.get(id=selectedItemId)
+            nextItem = ItemsPartSerializer(nextSbjItem)
+            return Response(nextItem.data, status.HTTP_200_OK)
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+    # 提交做完的主观题答案，并获取下一道主观题或结束测试
+    def post(self, req):
+        user_id = decode_token(req)['user_id']
+        req.data['user_id'] = user_id
+        usedSbjItems = get_used_sbj_items(req.data)
+        selectedItemId = select_sbj_item(usedSbjItems)
+        if selectedItemId:
+            nextSbjItem = TestItems.objects.get(id=selectedItemId)
+            testOver = False
+            nextItem = ItemsPartSerializer(nextSbjItem)
+        else:
+            nextItem = ItemsPartSerializer({})
+            testOver = True
+        # 测试做题记录保存
+        recordTest = SbjTestProcessSerializer(data=req.data)
+        if recordTest.is_valid(raise_exception=True):
+            recordTest.save()
+            return Response(
+                {
+                    'info': recordTest.data,
+                    "next_item": nextItem.data,
+                    'finishAllTest': testOver
+                }, status.HTTP_201_CREATED)
+        return Response(recordTest.errors, status.HTTP_400_BAD_REQUEST)

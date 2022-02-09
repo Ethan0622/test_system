@@ -1,7 +1,6 @@
-from math import fabs
-from typing import Callable
 from django.db import models
-from django.db.models.deletion import CASCADE
+from django.db.models.deletion import CASCADE, DO_NOTHING
+from django.core.validators import (MinValueValidator)
 
 
 class KnowledgePoints(models.Model):
@@ -11,9 +10,18 @@ class KnowledgePoints(models.Model):
     content = models.CharField(max_length=255, null=False)
 
 
+class ItemType(models.Model):
+    # 类型名称
+    type_name = models.CharField(max_length=100, null=False)
+    # 是否是主观题
+    is_subject = models.BooleanField(null=False)
+    # 题目总分值
+    total_score = models.IntegerField(null=False, validators=[MinValueValidator(0)])
+
+
 class TestItems(models.Model):
     # 题目类型，暂定选择题(1)、判断题(2)、简答题(3)
-    type = models.IntegerField(null=False)
+    type = models.ForeignKey(ItemType, on_delete=DO_NOTHING, null=False)
     # 对应知识点
     knowledge_id = models.ForeignKey(KnowledgePoints, on_delete=CASCADE, null=False)
     # 题干信息

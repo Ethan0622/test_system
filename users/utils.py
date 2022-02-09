@@ -9,15 +9,15 @@ def jwt_response_payload_handler(token, user=None, unfinished_test=None, request
     :request 当前本次客户端提交过来的数据
     """
     if unfinished_test != None:
-        unfinishTest = True
-        unfinished_test_info = {
+        is_unfinished = True
+        unfinished_info = {
             key: val
             for key, val in unfinished_test.data.items()
-            if key == 'test_id' or key == 'start_time'
+            if key == 'test_id' or key == 'start_time' or key == 'finish_object_test'
         }
     else:
-        unfinishTest = False
-        unfinished_test_info = {}
+        is_unfinished = False
+        unfinished_info = {}
 
     return {
         "userInfo": {
@@ -28,9 +28,9 @@ def jwt_response_payload_handler(token, user=None, unfinished_test=None, request
             'token': token,
             'init_ability': user.init_ability
         },
-        "unfinishTestInfo": {
-            'unfinishTest': unfinishTest,
-            'unfinished_test': unfinished_test_info
+        "unfinishedTest": {
+            'isUnfinished': is_unfinished,
+            'unfinishedInfo': unfinished_info
         }
     }
 

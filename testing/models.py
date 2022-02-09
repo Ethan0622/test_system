@@ -11,17 +11,15 @@ class TestInfo(models.Model):
 
     start_time = models.DateTimeField(verbose_name='考试开始时间', null=False)
 
-    end_time = models.DateTimeField(verbose_name='考试结束时间',
-                                    default=None,
-                                    null=True)
+    end_time = models.DateTimeField(verbose_name='考试结束时间', default=None, null=True)
 
     total_time = models.DurationField(verbose_name='总考试用时', null=True)
 
     newest_ability = models.FloatField(verbose_name='做题过程中最新的能力值评估', null=True)
 
-    final_ability = models.CharField(verbose_name='最终能力估计',
-                                     max_length=100,
-                                     null=True)
+    final_ability = models.CharField(verbose_name='最终能力估计', max_length=100, null=True)
+
+    finish_object_test = models.BooleanField(verbose_name='是否完成客观题测试', null=True)
 
     user_id = models.ForeignKey(MyUser, on_delete=CASCADE)
 
@@ -50,4 +48,14 @@ class ObjectTestProcess(models.Model):
     process_ability = models.FloatField(verbose_name='做完此题后的能力评估', null=False)
 
 
-# class SubjectTestProcess(models.Model):
+# 正式开始考试后的主观题做题过程
+class SubjectTestProcess(models.Model):
+    test_id = models.ForeignKey(TestInfo, on_delete=CASCADE)
+
+    item_id = models.ForeignKey(TestItems, on_delete=CASCADE)
+
+    # 由于主观题学生答案字数难以预估，故使用更大的数据库字段存放
+    answer = models.TextField(verbose_name='学生的回答', null=False)
+
+    # 教师给出或系统评价给出的评分，可以暂时为空
+    score = models.FloatField(verbose_name='得分', null=True)
