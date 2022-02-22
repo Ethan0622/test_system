@@ -12,7 +12,10 @@ class UserSerializer(serializers.ModelSerializer):
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
-        new_user = MyUser.objects.create_user(**validated_data)
+        if validated_data.get('type') == 1:
+            new_user = MyUser.objects.create_superuser(**validated_data)
+        else:
+            new_user = MyUser.objects.create_user(**validated_data)
         return new_user
 
     # 可修改字段：密码；真实姓名；邮箱
@@ -25,6 +28,7 @@ class UserSerializer(serializers.ModelSerializer):
         instance.email = validated_data.get('email') or instance.email
         instance.save()
         return instance
+
 
 class TestsListSerializer(serializers.Serializer):
     test_id = serializers.IntegerField(read_only=True)
