@@ -1,4 +1,3 @@
-from numpy import source
 from rest_framework import serializers
 from .models import MyClass
 from users.models import MyUser

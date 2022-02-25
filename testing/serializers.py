@@ -1,4 +1,3 @@
-from django.forms import IntegerField
 from rest_framework import serializers
 from users.models import MyUser
 from .models import TestInfo, InitTestProcess, ObjectTestProcess, SubjectTestProcess

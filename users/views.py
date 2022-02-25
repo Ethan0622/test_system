@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 
-from django.db.models.fields import NullBooleanField
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response

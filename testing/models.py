@@ -1,4 +1,3 @@
-from django.utils import timezone
 from django.db import models
 from django.db.models.deletion import CASCADE
 from users.models import MyUser
