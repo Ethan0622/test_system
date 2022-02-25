@@ -105,7 +105,6 @@ class ObjectTestProcessView(APIView):
         user_id = decode_token(req)['user_id']
         user = MyUser.objects.get(id=user_id)
         obj_processes = ObjectTestProcess.objects.filter(test_id=test_id)
-        print(obj_processes)
         if (not obj_processes):
             selector = MaxInfoSelector()
             numpyArray = switch_items_numpy([], type=1)

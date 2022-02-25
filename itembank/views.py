@@ -1,4 +1,3 @@
-from distutils.log import error
 import xlrd
 from rest_framework import status
 from rest_framework import response

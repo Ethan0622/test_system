@@ -6,15 +6,20 @@ from classes.models import MyClass
 
 
 class MyUserManager(BaseUserManager):
-
-    def create_user(self, number, type, password=None):
+    def create_user(self, number, type, password=None, realname=None, joined_class=None):
         if not number:
             raise ValueError('Users must have an school number ID')
 
-        user = self.model(
-            number=number,
-            type=type,
-        )
+        if realname and joined_class:
+            user = self.model(number=number,
+                              type=type,
+                              realname=realname,
+                              joined_class=joined_class)
+        else:
+            user = self.model(
+                number=number,
+                type=type,
+            )
 
         user.set_password(password)
         user.save(using=self._db)

@@ -1,3 +1,4 @@
+import xlrd
 from django.shortcuts import render
 from django.contrib.auth.hashers import make_password
 
@@ -97,6 +98,38 @@ class classStudentView(APIView):
         allStudent = MyUser.objects.filter(joined_class=theclass)
         students = UserSerializer(allStudent, many=True)
         return Response(students.data, status.HTTP_200_OK)
+
+    # 教师帮助学生创建账号并批量添加进入指定班级
+    def post(self, req, pk):
+        try:
+            theclass = MyClass.objects.get(id=pk)
+        except MyClass.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        uploadFile = req.FILES['file']
+        wb = xlrd.open_workbook(filename=None, file_contents=uploadFile.read())
+        table = wb.sheets()[0]
+        rows = table.nrows
+        cols = table.ncols
+        if cols != 2:
+            return Response({'errors': ['请使用本网站所提供的excel模板进行提交']},
+                            status.HTTP_400_BAD_REQUEST)
+        user_key = ['number', "realname", "type", 'password', "joined_class"]
+
+        existUserList = []
+        for i in range(1, rows):
+            row = table.row_values(i)
+            row[0] = int(row[0])
+            if '' in row:
+                return Response({'errors': ['部分学生的信息未填写，请检查']},
+                                status.HTTP_400_BAD_REQUEST)
+            row = row + [0, '123456', theclass.id]
+            userInfo = dict(zip(user_key, row))
+            createUser = UserSerializer(data=userInfo)
+            if createUser.is_valid():
+                createUser.save()
+            else:
+                existUserList.append(row[0])
+        return Response({'warnings': existUserList}, status=status.HTTP_200_OK)
 
     # 教师重置某个学生的密码
     def put(self, req, pk):
