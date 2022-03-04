@@ -16,7 +16,7 @@ class TestInfo(models.Model):
 
     newest_ability = models.FloatField(verbose_name='做题过程中最新的能力值评估', null=True)
 
-    final_ability = models.CharField(verbose_name='最终能力估计', max_length=100, null=True)
+    final_ability = models.FloatField(verbose_name='最终能力估计', max_length=100, null=True)
 
     finish_object_test = models.BooleanField(verbose_name='是否完成客观题测试', null=True)
 

@@ -1,3 +1,4 @@
+from pyexpat import model
 from rest_framework import serializers
 from users.models import MyUser
 from .models import TestInfo, InitTestProcess, ObjectTestProcess, SubjectTestProcess
@@ -123,3 +124,19 @@ class ItemInfoSerializer(serializers.ModelSerializer):
     # difficulty = serializers.FloatField(read_only=True)
     # guessing = serializers.FloatField(read_only=True)
     # exposure = serializers.FloatField(read_only=True)
+
+
+class ObjectResultSerializer(serializers.ModelSerializer):
+    item_content = serializers.CharField(source='item_id.content', read_only=True)
+    item_correct = serializers.CharField(source='item_id.correct', read_only=True)
+    class Meta:
+        model = ObjectTestProcess
+        fields = ['item_id', 'answer', 'judge', 'item_content', 'item_correct']
+
+
+class SubjectResultSerializer(serializers.ModelSerializer):
+    item_content = serializers.CharField(source='item_id.content', read_only=True)
+    item_correct = serializers.CharField(source='item_id.correct', read_only=True)
+    class Meta:
+        model = SubjectTestProcess
+        fields = ['item_id', 'answer', 'score', 'item_content', 'item_correct']

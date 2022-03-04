@@ -15,7 +15,7 @@ from .utils import get_used_obj_items, get_used_sbj_items, index_map, switch_ite
     used_items_ndarry, obj_select_range, select_sbj_item, update_item_difficulty, update_item_exposure
 from .models import InitTestProcess, ObjectTestProcess, SubjectTestProcess, TestInfo
 from .serializers import TestInfoStartSer, TestInfoSerializer, TestInfoFinishSer, ObjTestProcessSerializer,\
-    InitTestProcessSerializer, SbjTestProcessSerializer, ItemsPartSerializer
+    InitTestProcessSerializer, SbjTestProcessSerializer, ItemsPartSerializer, ObjectResultSerializer, SubjectResultSerializer
 from users.models import MyUser
 from itembank.models import TestItems
 
@@ -65,6 +65,27 @@ class TestInfoView(APIView):
 
 
 class TestInfoDetailView(APIView):
+    # 查看考试结果，前提：必须是完整的一次考试
+    def get(self, req, pk):
+        try:
+            testInfo = TestInfo.objects.get(test_id=pk)
+        except TestInfo.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        if (not testInfo.end_time):
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        else:
+            testId = pk
+            objectItemsQs = ObjectTestProcess.objects.filter(test_id=testId)
+            subjectItemsQs = SubjectTestProcess.objects.filter(test_id=testId)
+            objectItems = ObjectResultSerializer(objectItemsQs, many=True)
+            subjectItems = SubjectResultSerializer(subjectItemsQs, many=True)
+            return Response(
+                {
+                    'ability': testInfo.final_ability,
+                    'objectItems': objectItems.data,
+                    'subjectItems': subjectItems.data
+                }, status.HTTP_200_OK)
+
     # 考试过程中信息修改，考试结束等信息的提交
     def put(self, req, pk):
         try:
@@ -152,12 +173,12 @@ class ObjectTestProcessView(APIView):
         next_item_index = selector.select(items=numpyArray,
                                           administered_items=mappedList,
                                           est_theta=pre_theta)
-        if next_item_index:
+        if not (next_item_index is None):
             next_item_id = numpyArray[next_item_index][5]
             next_item_qs = TestItems.objects.get(id=next_item_id)
             next_item = ItemsPartSerializer(next_item_qs)
         else:
-            pass
+            next_item = ItemsPartSerializer({})
 
         # 测定学生最新能力值
         after_theta = estimator.estimate(items=numpyArray,
@@ -185,12 +206,14 @@ class ObjectTestProcessView(APIView):
         recordTest = ObjTestProcessSerializer(data=req.data)
         if recordTest.is_valid(raise_exception=True):
             recordTest.save()
-            return Response(
-                {
-                    'info': recordTest.data,
-                    "next_item": next_item.data or {},
-                    'finishObjTest': canStop
-                }, status.HTTP_201_CREATED)
+            print(next_item)
+            if (next_item):
+                return Response(
+                    {
+                        'info': recordTest.data,
+                        "next_item": next_item.data,
+                        'finishObjTest': canStop
+                    }, status.HTTP_201_CREATED)
 
         return Response(recordTest.errors, status.HTTP_400_BAD_REQUEST)
 

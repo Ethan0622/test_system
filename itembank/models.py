@@ -20,7 +20,7 @@ class ItemType(models.Model):
 
 
 class TestItems(models.Model):
-    # 题目类型，暂定选择题(1)、判断题(2)、简答题(3)
+    # 题目类型
     type = models.ForeignKey(ItemType, on_delete=DO_NOTHING, null=False)
     # 对应知识点
     knowledge_id = models.ForeignKey(KnowledgePoints, on_delete=CASCADE, null=False)
