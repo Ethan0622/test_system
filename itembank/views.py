@@ -3,10 +3,13 @@ from rest_framework import status
 from rest_framework import response
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAdminUser
 
-from .models import TestItems, ItemType
-from .serializers import ItemsAllSerializer, ItemsPartSerializer
+from users.models import MyUser
+from .models import TestItems, ItemType, TestPaper, TestPaperInfo
+from .serializers import ItemsAllSerializer, ItemsPartSerializer, TestPaperInfoSerializer, TestPaperSerializer
+
+from users.utils import decode_token
 
 
 class itemListView(APIView):
@@ -74,7 +77,6 @@ class itemDetailView(APIView):
 
 
 class itemsFileUploadView(APIView):
-
     def post(self, req):
         uploadFile = req.FILES['file']
         wb = xlrd.open_workbook(filename=None, file_contents=uploadFile.read())
@@ -118,3 +120,41 @@ class itemsFileUploadView(APIView):
                 createItem.is_valid()
                 createItem.save()
             return Response({'msg': '所有题目保存完成'}, status=status.HTTP_200_OK)
+
+
+class TestPaperListView(APIView):
+    permission_classes = (IsAdminUser, )
+
+    # 创建一份试卷
+    def post(self, req):
+        userId = decode_token(req)['user_id']
+        reqData = req.data
+        reqData['paper_teacher'] = userId
+        createPaper = TestPaperInfoSerializer(data=req.data)
+        if createPaper.is_valid(raise_exception=True):
+            createPaper.save()
+            return Response(createPaper.data, status.HTTP_201_CREATED)
+        return Response(createPaper.errors, status.HTTP_400_BAD_REQUEST)
+
+
+class TestPaperDetailView(APIView):
+    permission_classes = (IsAdminUser, )
+
+    # 往试卷中添加试题
+    def post(self, req, pk):
+        try:
+            paper = TestPaperInfo.objects.get(id=pk)
+        except TestPaperInfo.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        reqData = req.data
+        reqData['paper_id'] = paper.id
+        for itemId in req.data['item_id']:
+            try:
+                item = TestItems.objects.get(id=itemId)
+            except TestItems.DoesNotExist:
+                return Response(status=status.HTTP_400_BAD_REQUEST)
+            reqData['item_id'] = item.id
+            addItemIntoPaper = TestPaperSerializer(data=reqData)
+            if addItemIntoPaper.is_valid(raise_exception=True):
+                addItemIntoPaper.save()
+        return Response({'msg': '所选题目已添加到试卷中'}, status.HTTP_201_CREATED)

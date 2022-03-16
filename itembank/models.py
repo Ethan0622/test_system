@@ -1,6 +1,7 @@
 from django.db import models
 from django.db.models.deletion import CASCADE, DO_NOTHING
 from django.core.validators import (MinValueValidator)
+from users.models import MyUser
 
 
 class KnowledgePoints(models.Model):
@@ -42,3 +43,19 @@ class TestItems(models.Model):
     option_B = models.CharField(max_length=255, null=True)
     option_C = models.CharField(max_length=255, null=True)
     option_D = models.CharField(max_length=255, null=True)
+
+
+class TestPaperInfo(models.Model):
+    # 试题名称
+    paper_name = models.CharField(max_length=100, null=False)
+    # 创建时间
+    paper_ctime = models.DateField(auto_now_add=True)
+    # 创建教师
+    paper_teacher = models.ForeignKey(MyUser, on_delete=DO_NOTHING, null=False)
+
+
+class TestPaper(models.Model):
+    # 对应试卷id
+    paper_id = models.ForeignKey(TestPaperInfo, on_delete=CASCADE, null=False)
+    # 相应题目id
+    item_id = models.ForeignKey(TestItems, on_delete=CASCADE, null=False)

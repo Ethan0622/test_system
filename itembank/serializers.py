@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import TestItems, ItemType
+from .models import TestItems, ItemType, TestPaperInfo, TestPaper
 
 
 class ItemsPartSerializer(serializers.Serializer):
@@ -13,7 +13,6 @@ class ItemsPartSerializer(serializers.Serializer):
 
 
 class ItemsAllSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = TestItems
         fields = "__all__"
@@ -32,7 +31,18 @@ class ItemsAllSerializer(serializers.ModelSerializer):
 
 
 class ItemTypeSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = ItemType
+        fields = "__all__"
+
+
+class TestPaperInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TestPaperInfo
+        fields = "__all__"
+
+
+class TestPaperSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TestPaper
         fields = "__all__"

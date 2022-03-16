@@ -6,7 +6,6 @@ from itembank.models import TestItems, ItemType
 
 
 class TestInfoStartSer(serializers.ModelSerializer):
-
     class Meta:
         model = TestInfo
         fields = ['test_id', 'start_time', 'newest_ability', 'user_id']
@@ -15,7 +14,6 @@ class TestInfoStartSer(serializers.ModelSerializer):
 
 
 class TestInfoSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = TestInfo
         fields = "__all__"
@@ -42,7 +40,6 @@ class TestInfoPartSerializer(serializers.ModelSerializer):
 
 
 class TestInfoFinishSer(serializers.ModelSerializer):
-
     class Meta:
         model = TestInfo
         fields = ['test_id', 'end_time', 'total_time', 'final_ability']
@@ -51,21 +48,18 @@ class TestInfoFinishSer(serializers.ModelSerializer):
 
 
 class ObjTestProcessSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = ObjectTestProcess
         fields = "__all__"
 
 
 class InitTestProcessSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = InitTestProcess
         fields = "__all__"
 
 
 class SbjTestProcessSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = SubjectTestProcess
         fields = "__all__"
@@ -87,7 +81,6 @@ class SbjTestProcessDetailSerializer(serializers.ModelSerializer):
 
 
 class ItemsPartSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = TestItems
         fields = ['id', 'type', 'content', 'option_A', 'option_B', 'option_C', 'option_D']
@@ -105,7 +98,6 @@ class ItemsPartSerializer(serializers.ModelSerializer):
 
 
 class ItemInfoSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = TestItems
         fields = [
@@ -128,15 +120,55 @@ class ItemInfoSerializer(serializers.ModelSerializer):
 
 class ObjectResultSerializer(serializers.ModelSerializer):
     item_content = serializers.CharField(source='item_id.content', read_only=True)
-    item_correct = serializers.CharField(source='item_id.correct', read_only=True)
+    # item_correct = serializers.CharField(source='item_id.correct', read_only=True)
+    item_correct = serializers.SerializerMethodField('get_item_correct')
+    answer_content = serializers.SerializerMethodField('get_option')
+
+    def get_item_correct(self, ObjectTestProcess):
+        item = TestItems.objects.get(id=ObjectTestProcess.item_id.id)
+        if (item.type.id == 1):
+            switch = {
+                'A': item.option_A,
+                'B': item.option_B,
+                'C': item.option_C,
+                'D': item.option_D
+            }
+            try:
+                correctContent = switch[item.correct]
+                return item.correct + '、' + correctContent
+            except KeyError as e:
+                return item.correct
+        else:
+            return TestItems.objects.get(id=ObjectTestProcess.item_id.id).correct
+
+    def get_option(self, ObjectTestProcess):
+        item = TestItems.objects.get(id=ObjectTestProcess.item_id.id)
+        if (item.type.id == 1):
+            switch = {
+                'A': item.option_A,
+                'B': item.option_B,
+                'C': item.option_C,
+                'D': item.option_D
+            }
+            try:
+                answerContent = switch[ObjectTestProcess.answer]
+                return ObjectTestProcess.answer + '、' + answerContent
+            except KeyError as e:
+                return ObjectTestProcess.answer
+        else:
+            return ObjectTestProcess.answer
+
     class Meta:
         model = ObjectTestProcess
-        fields = ['item_id', 'answer', 'judge', 'item_content', 'item_correct']
+        fields = [
+            'item_id', 'answer', 'judge', 'item_content', 'item_correct', 'answer_content'
+        ]
 
 
 class SubjectResultSerializer(serializers.ModelSerializer):
     item_content = serializers.CharField(source='item_id.content', read_only=True)
     item_correct = serializers.CharField(source='item_id.correct', read_only=True)
+
     class Meta:
         model = SubjectTestProcess
         fields = ['item_id', 'answer', 'score', 'item_content', 'item_correct']
