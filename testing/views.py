@@ -185,6 +185,7 @@ class ObjectTestProcessView(APIView):
                                          administered_items=mappedList,
                                          response_vector=judgeList,
                                          est_theta=pre_theta)
+        after_theta = round(after_theta, 8)
         req.data['process_ability'] = after_theta
 
         # 结束判断，依据最大标准误差<=0.2时（即累计信息量>=25）或做的题目达到40题时允许结束客观题部分
@@ -197,7 +198,7 @@ class ObjectTestProcessView(APIView):
 
         # 测试过程中用户最新能力值记录保存，存于测试记录表中
         testInfo = TestInfo.objects.get(test_id=req.data['test_id'])
-        testInfo.newest_ability = round(after_theta, 8)
+        testInfo.newest_ability = after_theta
         if canStop:
             testInfo.finish_object_test = True
         testInfo.save()
@@ -206,7 +207,6 @@ class ObjectTestProcessView(APIView):
         recordTest = ObjTestProcessSerializer(data=req.data)
         if recordTest.is_valid(raise_exception=True):
             recordTest.save()
-            print(next_item)
             if (next_item):
                 return Response(
                     {

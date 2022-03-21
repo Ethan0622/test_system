@@ -29,7 +29,6 @@ class ItemsAllSerializer(serializers.ModelSerializer):
         else:
             return value
 
-
 class ItemTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ItemType
