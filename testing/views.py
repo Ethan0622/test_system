@@ -12,12 +12,20 @@ from catsim.stopping import MinErrorStopper
 
 from users.utils import decode_token
 from .utils import get_used_obj_items, get_used_sbj_items, index_map, switch_items_numpy, separate_dict,\
-    used_items_ndarry, obj_select_range, select_sbj_item, update_item_difficulty, update_item_exposure
-from .models import InitTestProcess, ObjectTestProcess, SubjectTestProcess, TestInfo
-from .serializers import TestInfoStartSer, TestInfoSerializer, TestInfoFinishSer, ObjTestProcessSerializer,\
-    InitTestProcessSerializer, SbjTestProcessSerializer, ItemsPartSerializer, ObjectResultSerializer, SubjectResultSerializer
+    used_items_ndarry, obj_select_range, select_sbj_item, update_item_difficulty, update_item_exposure, validate_item_total
+from .models import InitTestProcess, ObjectTestProcess, SubjectTestProcess, TestInfo, TestSetting
+from .serializers import TestSettingSerializer, TestInfoStartSer, TestInfoSerializer, TestInfoFinishSer,\
+    ObjTestProcessSerializer,InitTestProcessSerializer, SbjTestProcessSerializer, ItemsPartSerializer,\
+    ObjectResultSerializer, SubjectResultSerializer
 from users.models import MyUser
 from itembank.models import TestItems
+
+
+class TestSettingView(APIView):
+    def get(self, req):
+        allTestSettingQs = TestSetting.objects.all()
+        allTestSettings = TestSettingSerializer(allTestSettingQs, many=True)
+        return Response(allTestSettings.data, status.HTTP_200_OK)
 
 
 class TestInfoView(APIView):
@@ -30,27 +38,44 @@ class TestInfoView(APIView):
         ChoiceItems = TestItems.objects.filter(type=1).values()
         # 选择题由易到难排序后
         sortChoiceItems = sorted(ChoiceItems, key=lambda x: x['difficulty'])
-        first_item = None
 
+        # 先验证并保存考试配置
+        # 提供的可能是已有的配置预设，或提供详细的配置参数
+        testSettingId = req.data.get('test_setting', None)
+        if (not testSettingId):  # 提供的是详细的配置参数
+            totalOver = validate_item_total(req.data)
+            if type(totalOver) == str:
+                return Response({'error': totalOver + '超过现有题量'},
+                                status.HTTP_400_BAD_REQUEST)
+            elif type(totalOver) == int:
+                testSettingId = totalOver
+            else:
+                saveTestSetting = TestSettingSerializer(data=req.data)
+                if saveTestSetting.is_valid(raise_exception=True):
+                    saveTestSetting.save()
+                    testSettingId = saveTestSetting.data['id']
+        req.data['test_setting'] = testSettingId
+
+        firstItem = None
         if user.init_ability != None:  # 考生有初始能力值
             req.data['newest_ability'] = user.init_ability
 
             selector = MaxInfoSelector()
             numpyArray = switch_items_numpy([], type=1)
-            first_item_index = selector.select(items=numpyArray,
-                                               administered_items=[],
-                                               est_theta=user.init_ability)
-            first_item_id = numpyArray[first_item_index][5]
+            firstItemIndex = selector.select(items=numpyArray,
+                                             administered_items=[],
+                                             est_theta=user.init_ability)
+            firstItemId = numpyArray[firstItemIndex][5]
 
-            first_item_qs = TestItems.objects.get(id=first_item_id)
-            first_item = ItemsPartSerializer(first_item_qs)
+            firstItemQs = TestItems.objects.get(id=firstItemId)
+            firstItem = ItemsPartSerializer(firstItemQs)
         else:  # 考生没有初始能力值
             indexList = range(
                 int(len(sortChoiceItems) / 2) - 5,
                 int(len(sortChoiceItems) / 2) + 5)
-            random_index = choice(indexList)
-            first_item_qs = TestItems.objects.get(id=sortChoiceItems[random_index]['id'])
-            first_item = ItemsPartSerializer(first_item_qs)
+            randomIndex = choice(indexList)
+            firstItemQs = TestItems.objects.get(id=sortChoiceItems[randomIndex]['id'])
+            firstItem = ItemsPartSerializer(firstItemQs)
 
         # 手动记录考试开始时间，数据库的auto_add_now不太好用
         req.data['start_time'] = datetime.now()
@@ -59,7 +84,7 @@ class TestInfoView(APIView):
             startTest.save()
             return Response({
                 'testInfo': startTest.data,
-                'first_item': first_item.data
+                'first_item': firstItem.data
             }, status.HTTP_201_CREATED)
         return Response(startTest.errors, status.HTTP_400_BAD_REQUEST)
 
@@ -107,10 +132,10 @@ class TestFinishView(APIView):
         except TestInfo.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
         # 结束时间记录，并计算考试时长
-        start_time = testInfo.start_time
-        end_time = datetime.now()
-        req.data['end_time'] = end_time
-        req.data['total_time'] = end_time - start_time
+        startTime = testInfo.start_time
+        endTime = datetime.now()
+        req.data['end_time'] = endTime
+        req.data['total_time'] = endTime - startTime
         req.data['final_ability'] = testInfo.newest_ability
         finishTest = TestInfoFinishSer(instance=testInfo, data=req.data)
         if finishTest.is_valid(raise_exception=True):
@@ -129,12 +154,12 @@ class ObjectTestProcessView(APIView):
         if (not obj_processes):
             selector = MaxInfoSelector()
             numpyArray = switch_items_numpy([], type=1)
-            first_item_index = selector.select(items=numpyArray,
-                                               administered_items=[],
-                                               est_theta=user.init_ability)
-            first_item_id = numpyArray[first_item_index][5]
-            first_item_qs = TestItems.objects.get(id=first_item_id)
-            first_item = ItemsPartSerializer(first_item_qs)
+            firstItemIndex = selector.select(items=numpyArray,
+                                             administered_items=[],
+                                             est_theta=user.init_ability)
+            firstItemId = numpyArray[firstItemIndex][5]
+            firstItemQs = TestItems.objects.get(id=firstItemId)
+            first_item = ItemsPartSerializer(firstItemQs)
             return Response(first_item.data, status.HTTP_200_OK)
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -151,7 +176,9 @@ class ObjectTestProcessView(APIView):
         req.data['judge'] = judge
         req.data['user_id'] = user_id
 
-        pre_theta = TestInfo.objects.get(test_id=req.data['test_id']).newest_ability
+        testInfo = TestInfo.objects.get(test_id=req.data['test_id'])
+
+        pre_theta = testInfo.newest_ability
 
         usedObjItems = get_used_obj_items(req.data)
 
@@ -190,13 +217,15 @@ class ObjectTestProcessView(APIView):
         # 结束判断，依据最大标准误差<=0.2时（即累计信息量>=25）或做的题目达到40题时允许结束客观题部分
         ad_items_ndarray = used_items_ndarry(numpyArray, itemIdList)
         canStop = stopper.stop(administered_items=ad_items_ndarray, theta=after_theta)
-        if (len(usedObjItems) >= 40):
+        testSettingId = testInfo.test_setting.id
+        testSetting = TestSetting.objects.get(id=testSettingId)
+        objectTotal = testSetting.choice_total + testSetting.judge_total
+        if (len(usedObjItems) >= objectTotal):
             canStop = True
 
         update_item_difficulty(req.data)
 
         # 测试过程中用户最新能力值记录保存，存于测试记录表中
-        testInfo = TestInfo.objects.get(test_id=req.data['test_id'])
         testInfo.newest_ability = round(after_theta, 8)
         if canStop:
             testInfo.finish_object_test = True
@@ -206,7 +235,6 @@ class ObjectTestProcessView(APIView):
         recordTest = ObjTestProcessSerializer(data=req.data)
         if recordTest.is_valid(raise_exception=True):
             recordTest.save()
-            print(next_item)
             if (next_item):
                 return Response(
                     {
@@ -284,12 +312,12 @@ class InitTestProcessView(APIView):
                     indexList = range(index + 1, index + 11)
                 init_next_item = None
                 while True:
-                    random_index = choice(indexList)
-                    if (sortChoiceItems[random_index]['difficulty'] - difficulty <= 0.5
-                        ) and (sortChoiceItems[random_index]['id'] not in usedItemsList):
-                        init_next_item = sortChoiceItems[random_index]
+                    randomIndex = choice(indexList)
+                    if (sortChoiceItems[randomIndex]['difficulty'] - difficulty <= 0.5
+                        ) and (sortChoiceItems[randomIndex]['id'] not in usedItemsList):
+                        init_next_item = sortChoiceItems[randomIndex]
                         init_first_item_qs = TestItems.objects.get(
-                            id=sortChoiceItems[random_index]['id'])
+                            id=sortChoiceItems[randomIndex]['id'])
                         init_next_item = ItemsPartSerializer(init_first_item_qs)
                         break
 
@@ -306,11 +334,11 @@ class InitTestProcessView(APIView):
                     indexList = range(index - 11, index - 1)
                 init_next_item = None
                 while True:
-                    random_index = choice(indexList)
-                    if (difficulty - sortChoiceItems[random_index]['difficulty'] <= 0.5
-                        ) and (sortChoiceItems[random_index]['id'] not in usedItemsList):
+                    randomIndex = choice(indexList)
+                    if (difficulty - sortChoiceItems[randomIndex]['difficulty'] <= 0.5
+                        ) and (sortChoiceItems[randomIndex]['id'] not in usedItemsList):
                         init_first_item_qs = TestItems.objects.get(
-                            id=sortChoiceItems[random_index]['id'])
+                            id=sortChoiceItems[randomIndex]['id'])
                         init_next_item = ItemsPartSerializer(init_first_item_qs)
                         break
 
@@ -339,9 +367,9 @@ class InitTestProcessView(APIView):
             indexList = range(
                 int(len(sortChoiceItems) / 2) - 5,
                 int(len(sortChoiceItems) / 2) + 5)
-            random_index = choice(indexList)
-            first_item_qs = TestItems.objects.get(id=sortChoiceItems[random_index]['id'])
-            first_item = ItemsPartSerializer(first_item_qs)
+            randomIndex = choice(indexList)
+            firstItemQs = TestItems.objects.get(id=sortChoiceItems[randomIndex]['id'])
+            first_item = ItemsPartSerializer(firstItemQs)
             return Response({'next_item': first_item.data}, status.HTTP_200_OK)
         else:
             usedItemsList = separate_dict('item_id', initUsedItems)
@@ -356,12 +384,12 @@ class InitTestProcessView(APIView):
                     indexList = range(index + 1, index + 11)
                 init_next_item = None
                 while True:
-                    random_index = choice(indexList)
-                    if (sortChoiceItems[random_index]['difficulty'] - difficulty <= 0.5
-                        ) and (sortChoiceItems[random_index]['id'] not in usedItemsList):
-                        init_next_item = sortChoiceItems[random_index]
+                    randomIndex = choice(indexList)
+                    if (sortChoiceItems[randomIndex]['difficulty'] - difficulty <= 0.5
+                        ) and (sortChoiceItems[randomIndex]['id'] not in usedItemsList):
+                        init_next_item = sortChoiceItems[randomIndex]
                         init_first_item_qs = TestItems.objects.get(
-                            id=sortChoiceItems[random_index]['id'])
+                            id=sortChoiceItems[randomIndex]['id'])
                         init_next_item = ItemsPartSerializer(init_first_item_qs)
                         break
                 return Response({'next_item': init_next_item.data}, status.HTTP_200_OK)
@@ -376,11 +404,11 @@ class InitTestProcessView(APIView):
                     indexList = range(index - 11, index - 1)
                 init_next_item = None
                 while True:
-                    random_index = choice(indexList)
-                    if (difficulty - sortChoiceItems[random_index]['difficulty'] <= 0.5
-                        ) and (sortChoiceItems[random_index]['id'] not in usedItemsList):
+                    randomIndex = choice(indexList)
+                    if (difficulty - sortChoiceItems[randomIndex]['difficulty'] <= 0.5
+                        ) and (sortChoiceItems[randomIndex]['id'] not in usedItemsList):
                         init_first_item_qs = TestItems.objects.get(
-                            id=sortChoiceItems[random_index]['id'])
+                            id=sortChoiceItems[randomIndex]['id'])
                         init_next_item = ItemsPartSerializer(init_first_item_qs)
                         break
                 return Response({'next_item': init_next_item.data}, status.HTTP_200_OK)
@@ -397,7 +425,7 @@ class TestContinueView(APIView):
         if (user.init_ability):
             if finishObjTest:
                 usedSbjItems = get_used_sbj_items(req.data)
-                selectedItemId = select_sbj_item(usedSbjItems)
+                selectedItemId = select_sbj_item(usedSbjItems, req.get('unfinished_test_id'))
                 nextSbjItem = TestItems.objects.get(id=selectedItemId)
                 nextItem = ItemsPartSerializer(nextSbjItem)
                 return Response({"next_item": nextItem.data}, status.HTTP_200_OK)
@@ -410,12 +438,12 @@ class TestContinueView(APIView):
                 test_id = req.data['unfinished_test_id']
                 pre_theta = TestInfo.objects.get(test_id=test_id).newest_ability
                 selector = MaxInfoSelector()
-                first_item_index = selector.select(items=numpyArray,
-                                                   administered_items=mappedList,
-                                                   est_theta=pre_theta)
-                first_item_id = numpyArray[first_item_index][5]
-                first_item_qs = TestItems.objects.get(id=first_item_id)
-                next_obj_item = ItemsPartSerializer(first_item_qs)
+                firstItemIndex = selector.select(items=numpyArray,
+                                                 administered_items=mappedList,
+                                                 est_theta=pre_theta)
+                firstItemId = numpyArray[firstItemIndex][5]
+                firstItemQs = TestItems.objects.get(id=firstItemId)
+                next_obj_item = ItemsPartSerializer(firstItemQs)
                 return Response({"next_item": next_obj_item.data}, status.HTTP_200_OK)
         else:
             return Response({
@@ -442,7 +470,7 @@ class SubjectTestProcessView(APIView):
         user_id = decode_token(req)['user_id']
         req.data['user_id'] = user_id
         usedSbjItems = get_used_sbj_items(req.data)
-        selectedItemId = select_sbj_item(usedSbjItems)
+        selectedItemId = select_sbj_item(usedSbjItems, req.get('test_id'))
         if selectedItemId:
             nextSbjItem = TestItems.objects.get(id=selectedItemId)
             testOver = False

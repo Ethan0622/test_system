@@ -1,6 +1,7 @@
+from re import S
 import numpy, math
 from random import choice
-from .models import SubjectTestProcess, TestInfo, ObjectTestProcess, InitTestProcess
+from .models import SubjectTestProcess, TestInfo, ObjectTestProcess, InitTestProcess, TestSetting
 from itembank.models import TestItems, ItemType
 from .serializers import TestInfoSerializer, ObjTestProcessSerializer, ItemInfoSerializer
 from itembank.serializers import ItemTypeSerializer
@@ -231,11 +232,14 @@ def obj_select_range(dictList):
     return returnDict
 
 
-def select_sbj_item(dictList):
+def select_sbj_item(dictList, testId):
     knowledgeList = []
     KnowledgeCount = {}
     typeList = []
     typeCount = {}
+    testInfo = TestInfo.objects.get(test_id=testId)
+    testSettingId = testInfo.test_setting.id
+    testSetting = TestSetting.objects.get(id=testSettingId)
     for item in dictList:
         knowledgeList.append(item.get('item_knowledge'))
         typeList.append(item.get('item_type'))
@@ -244,20 +248,20 @@ def select_sbj_item(dictList):
     for i in range(1, 9):
         KnowledgeCount[i] = knowledgeList.count(i)
     non_knowledgeList = [x[0] for x in KnowledgeCount.items() if x[1] <= 0]
-    if typeCount[3] < 4:
-        # 选4道名词解释
+    if typeCount[3] < testSetting.glossary_total:
+        # 选几道名词解释
         testedId = [x['item_id'] for x in dictList if x['item_type'] == 3]
         mcjs = list(TestItems.objects.filter(type=3).values('id', 'type', 'knowledge_id'))
         unTestedmcjs = [x for x in mcjs if x['id'] not in testedId]
         return choice(unTestedmcjs)['id']
-    elif typeCount[4] < 2:
-        # 选2道简答题
+    elif typeCount[4] < testSetting.saqs_total:
+        # 选几道简答题
         testedId = [x['item_id'] for x in dictList if x['item_type'] == 4]
         jd = list(TestItems.objects.filter(type=4).values('id', 'type', 'knowledge_id'))
         unTestedjd = [x for x in jd if x['id'] not in testedId]
         return choice(unTestedjd)['id']
-    elif typeCount[5] < 1:
-        # 选1道论述题
+    elif typeCount[5] < testSetting.discuss_total:
+        # 选几道论述题
         testedId = [x['item_id'] for x in dictList if x['item_type'] == 5]
         ls = list(TestItems.objects.filter(type=5).values('id', 'type', 'knowledge_id'))
         unTestedls = [x for x in ls if x['id'] not in testedId]
@@ -275,3 +279,39 @@ def update_item_exposure(id):
     item = TestItems.objects.get(id=id)
     item.exposure = exposureRate
     item.save()
+
+
+# 验证本次考试所指定的各种题型的数量不超过题库中该题型的总题量
+def validate_item_total(reqData):
+    choice_total = reqData.get('choice_total', 0)
+    judge_total = reqData.get('judge_total', 0)
+    glossary_total = reqData.get('glossary_total', 0)
+    saqs_total = reqData.get('saqs_total', 0)
+    discuss_total = reqData.get('discuss_total', 0)
+
+    keyList = [
+        'choice_total', 'judge_total', 'glossary_total', 'saqs_total', 'discuss_total'
+    ]
+
+    totalList = [('choice_total', choice_total), ('judge_total', judge_total),
+                 ('glossary_total', glossary_total), ('saqs_total', saqs_total),
+                 ('discuss_total', discuss_total)]
+
+    choice_sum = TestItems.objects.filter(type=1).count()
+    judge_sum = TestItems.objects.filter(type=2).count()
+    glossary_sum = TestItems.objects.filter(type=3).count()
+    saqs_sum = TestItems.objects.filter(type=4).count()
+    discuss_sum = TestItems.objects.filter(type=5).count()
+
+    sumList = [choice_sum, judge_sum, glossary_sum, saqs_sum, discuss_sum]
+
+    filterReqData = {}
+    for key in keyList:
+        filterReqData[key] = reqData[key]
+    testSettingExist = TestSetting.objects.filter(**filterReqData).values('id')
+    if testSettingExist:
+        return testSettingExist[0]['id']
+
+    for i in range(0, 5):
+        if (totalList[i][1] > sumList[i]):
+            return totalList[i][0]

@@ -1,14 +1,24 @@
 from pyexpat import model
 from rest_framework import serializers
 from users.models import MyUser
-from .models import TestInfo, InitTestProcess, ObjectTestProcess, SubjectTestProcess
+from .models import TestInfo, InitTestProcess, ObjectTestProcess, SubjectTestProcess, TestSetting
 from itembank.models import TestItems, ItemType
+
+
+class TestSettingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TestSetting
+        fields = [
+            'id', 'choice_total', 'judge_total', 'glossary_total', 'saqs_total',
+            'discuss_total'
+        ]
+        read_only_fields = ['id']
 
 
 class TestInfoStartSer(serializers.ModelSerializer):
     class Meta:
         model = TestInfo
-        fields = ['test_id', 'start_time', 'newest_ability', 'user_id']
+        fields = ['test_id', 'start_time', 'newest_ability', 'user_id', 'test_setting']
         read_only_fields = ['test_id']
         extra_kwargs = {'start_time': {'write_only': True}}
 
@@ -88,14 +98,6 @@ class ItemsPartSerializer(serializers.ModelSerializer):
             'id', 'type', 'content', 'option_A', 'option_B', 'option_C', 'option_D'
         ]
 
-    # id = serializers.IntegerField(read_only=True)
-    # type = serializers.PrimaryKeyRelatedField(read_only=True)
-    # content = serializers.CharField(read_only=True)
-    # option_A = serializers.CharField(read_only=True)
-    # option_B = serializers.CharField(read_only=True)
-    # option_C = serializers.CharField(read_only=True)
-    # option_D = serializers.CharField(read_only=True)
-
 
 class ItemInfoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -108,14 +110,6 @@ class ItemInfoSerializer(serializers.ModelSerializer):
             'id', 'type', 'knowledge_id', 'discrimination', 'difficulty', 'guessing',
             'exposure'
         ]
-
-    # id = serializers.IntegerField(read_only=True)
-    # type = serializers.PrimaryKeyRelatedField(read_only=True)
-    # knowledge_id = serializers.PrimaryKeyRelatedField(read_only=True)
-    # discrimination = serializers.FloatField(read_only=True)
-    # difficulty = serializers.FloatField(read_only=True)
-    # guessing = serializers.FloatField(read_only=True)
-    # exposure = serializers.FloatField(read_only=True)
 
 
 class ObjectResultSerializer(serializers.ModelSerializer):

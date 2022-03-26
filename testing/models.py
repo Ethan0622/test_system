@@ -2,6 +2,35 @@ from django.db import models
 from django.db.models.deletion import CASCADE
 from users.models import MyUser
 from itembank.models import TestItems
+from django.core.validators import (MinValueValidator, MaxValueValidator)
+
+
+# 考试配置（客观题{选择、判断}、主观题{名词解释、简答题、论述题}）
+class TestSetting(models.Model):
+    choice_total = models.IntegerField(verbose_name='选择题数目',
+                                       validators=[MinValueValidator(0)],
+                                       default=28)
+
+    judge_total = models.IntegerField(verbose_name='判断题数目',
+                                      validators=[MinValueValidator(0)],
+                                      default=12)
+
+    glossary_total = models.IntegerField(verbose_name='名词解释数目',
+                                         validators=[MinValueValidator(0)],
+                                         default=4)
+
+    saqs_total = models.IntegerField(verbose_name='简答题数目',
+                                     validators=[MinValueValidator(0)],
+                                     default=2)
+
+    discuss_total = models.IntegerField(verbose_name='论述题数目',
+                                        validators=[MinValueValidator(0)],
+                                        default=1)
+
+    class Meta:
+        unique_together = [
+            'choice_total', 'judge_total', 'glossary_total', 'saqs_total', 'discuss_total'
+        ]
 
 
 # 学生开始一次考试即新增一条记录
@@ -21,6 +50,8 @@ class TestInfo(models.Model):
     finish_object_test = models.BooleanField(verbose_name='是否完成客观题测试', null=True)
 
     user_id = models.ForeignKey(MyUser, on_delete=CASCADE)
+
+    test_setting = models.ForeignKey(TestSetting, on_delete=models.SET_NULL, null=True)
 
 
 # 若学生是第一次考试，还没有初始能力值的估计，则初始能力值估计的考试过程记录于此

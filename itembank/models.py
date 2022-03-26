@@ -26,9 +26,9 @@ class TestItems(models.Model):
     # 对应知识点
     knowledge_id = models.ForeignKey(KnowledgePoints, on_delete=CASCADE, null=False)
     # 题干信息
-    content = models.CharField(max_length=255, null=False, unique=True)
+    content = models.TextField(null=False)  # 暂时去掉唯一性，优先保证长度够
     # 参考答案
-    correct = models.CharField(max_length=255, null=False)
+    correct = models.TextField(null=False)
     # 题目区分度
     discrimination = models.FloatField(null=False, default=1)
     # 题目难度系数
@@ -39,10 +39,20 @@ class TestItems(models.Model):
     exposure = models.FloatField(null=False, default=0)
 
     # 若type==1，则必须有选项，题目A、B、C、D选项
-    option_A = models.CharField(max_length=255, null=True)
-    option_B = models.CharField(max_length=255, null=True)
-    option_C = models.CharField(max_length=255, null=True)
-    option_D = models.CharField(max_length=255, null=True)
+    option_A = models.TextField(null=True)
+    option_B = models.TextField(null=True)
+    option_C = models.TextField(null=True)
+    option_D = models.TextField(null=True)
+
+
+class ItemImages(models.Model):
+    item_id = models.ForeignKey(TestItems,
+                                related_name='item_images',
+                                on_delete=CASCADE,
+                                null=False)
+    img_site = models.IntegerField(verbose_name='此图片用在题目的什么位置.默认：1=题干中；特殊：2=选择题的选项中',
+                                   default=1)
+    img_url = models.ImageField(upload_to='images/')
 
 
 class TestPaperInfo(models.Model):
