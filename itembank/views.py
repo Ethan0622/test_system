@@ -114,7 +114,9 @@ class itemsFileUploadView(APIView):
         else:
             for i in range(1, rows):
                 row = table.row_values(i)
-                row = row[:5] if row[0] != 1 else row
+                row[1] = round(row[1], 8)   # 保证难度系数保留8位小数（前提：如果超出8位）
+                row = row[:5] if row[0] != 1 else row   # 只有选择题有选项
+                row[4] = int(row[4]) if row[0] == 2 else row[4] # 保证判断题的正确答案是整数形式的字符串，不能有小数点
                 itemInfo = dict(zip(item_key, row))
                 createItem = ItemsAllSerializer(data=itemInfo)
                 createItem.is_valid()

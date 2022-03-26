@@ -212,6 +212,7 @@ class ObjectTestProcessView(APIView):
                                          administered_items=mappedList,
                                          response_vector=judgeList,
                                          est_theta=pre_theta)
+        after_theta = round(after_theta, 8)
         req.data['process_ability'] = after_theta
 
         # 结束判断，依据最大标准误差<=0.2时（即累计信息量>=25）或做的题目达到40题时允许结束客观题部分
