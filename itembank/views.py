@@ -13,6 +13,22 @@ from users.utils import decode_token
 
 
 class itemListView(APIView):
+    # 获取每种题型的总题量
+    def get(self, req):
+        choice_sum = TestItems.objects.filter(type=1).count()
+        judge_sum = TestItems.objects.filter(type=2).count()
+        glossary_sum = TestItems.objects.filter(type=3).count()
+        saqs_sum = TestItems.objects.filter(type=4).count()
+        discuss_sum = TestItems.objects.filter(type=5).count()
+        return Response(
+            {
+                'choice_sum': choice_sum,
+                'judge_sum': judge_sum,
+                'glossary_sum': glossary_sum,
+                'saqs_sum': saqs_sum,
+                'discuss_sum': discuss_sum
+            }, status.HTTP_200_OK)
+
     # 新增试题
     def post(self, req):
         createItem = ItemsAllSerializer(data=req.data)
@@ -77,6 +93,7 @@ class itemDetailView(APIView):
 
 
 class itemsFileUploadView(APIView):
+
     def post(self, req):
         uploadFile = req.FILES['file']
         wb = xlrd.open_workbook(filename=None, file_contents=uploadFile.read())
@@ -114,9 +131,10 @@ class itemsFileUploadView(APIView):
         else:
             for i in range(1, rows):
                 row = table.row_values(i)
-                row[1] = round(row[1], 8)   # 保证难度系数保留8位小数（前提：如果超出8位）
-                row = row[:5] if row[0] != 1 else row   # 只有选择题有选项
-                row[4] = int(row[4]) if row[0] == 2 else row[4] # 保证判断题的正确答案是整数形式的字符串，不能有小数点
+                row[1] = round(row[1], 8)  # 保证难度系数保留8位小数（前提：如果超出8位）
+                row = row[:5] if row[0] != 1 else row  # 只有选择题有选项
+                row[4] = int(
+                    row[4]) if row[0] == 2 else row[4]  # 保证判断题的正确答案是整数形式的字符串，不能有小数点
                 itemInfo = dict(zip(item_key, row))
                 createItem = ItemsAllSerializer(data=itemInfo)
                 createItem.is_valid()
