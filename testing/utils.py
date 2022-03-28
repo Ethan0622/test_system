@@ -315,3 +315,18 @@ def validate_item_total(reqData):
     for i in range(0, 5):
         if (totalList[i][1] > sumList[i]):
             return totalList[i][0]
+
+
+def check_test_will_finish(test_id):
+    testInfo = TestInfo.objects.get(test_id=test_id)
+    testSettingId = testInfo.test_setting.id
+    testSetting = TestSetting.objects.get(id=testSettingId)
+    subjectTotal = testSetting.glossary_total + testSetting.saqs_total + testSetting.discuss_total
+    if (subjectTotal <= 1):
+        return True
+    else:
+        subjectRecordCount = SubjectTestProcess.objects.filter(test_id=test_id).count()
+        if subjectRecordCount + 2 == subjectTotal:
+            return True
+        else:
+            return False

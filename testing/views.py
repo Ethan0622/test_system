@@ -12,7 +12,8 @@ from catsim.stopping import MinErrorStopper
 
 from users.utils import decode_token
 from .utils import get_used_obj_items, get_used_sbj_items, index_map, switch_items_numpy, separate_dict,\
-    used_items_ndarry, obj_select_range, select_sbj_item, update_item_difficulty, update_item_exposure, validate_item_total
+    used_items_ndarry, obj_select_range, select_sbj_item, update_item_difficulty,check_test_will_finish,\
+    update_item_exposure, validate_item_total
 from .models import InitTestProcess, ObjectTestProcess, SubjectTestProcess, TestInfo, TestSetting
 from .serializers import TestSettingSerializer, TestInfoStartSer, TestInfoSerializer, TestInfoFinishSer,\
     ObjTestProcessSerializer,InitTestProcessSerializer, SbjTestProcessSerializer, ItemsPartSerializer,\
@@ -110,6 +111,12 @@ class TestInfoDetailView(APIView):
                     'objectItems': objectItems.data,
                     'subjectItems': subjectItems.data
                 }, status.HTTP_200_OK)
+
+    # 查看某一次考试的配置信息
+    def post(self, req, pk):
+        testInfo = TestInfo.objects.get(test_id=pk)
+        getTestInfo = TestInfoSerializer(instance=testInfo)
+        return Response(getTestInfo.data, status.HTTP_200_OK)
 
     # 考试过程中信息修改，考试结束等信息的提交
     def put(self, req, pk):
@@ -221,8 +228,13 @@ class ObjectTestProcessView(APIView):
         testSettingId = testInfo.test_setting.id
         testSetting = TestSetting.objects.get(id=testSettingId)
         objectTotal = testSetting.choice_total + testSetting.judge_total
+        subjectTotal = testSetting.glossary_total + testSetting.saqs_total + testSetting.discuss_total
         if (len(usedObjItems) >= objectTotal):
             canStop = True
+        testWillFinish = False
+        testOver = False
+        if (len(usedObjItems) == objectTotal - 1 and subjectTotal == 0):
+            testWillFinish = True
 
         update_item_difficulty(req.data)
 
@@ -230,6 +242,8 @@ class ObjectTestProcessView(APIView):
         testInfo.newest_ability = round(after_theta, 8)
         if canStop:
             testInfo.finish_object_test = True
+            if subjectTotal == 0:
+                testOver = True
         testInfo.save()
 
         # 测试做题记录保存
@@ -240,8 +254,10 @@ class ObjectTestProcessView(APIView):
                 return Response(
                     {
                         'info': recordTest.data,
-                        "next_item": next_item.data,
-                        'finishObjTest': canStop
+                        'next_item': next_item.data,
+                        'finishObjTest': canStop,
+                        'testWillFinish': testWillFinish,
+                        'testAllFinish': testOver
                     }, status.HTTP_201_CREATED)
 
         return Response(recordTest.errors, status.HTTP_400_BAD_REQUEST)
@@ -426,26 +442,45 @@ class TestContinueView(APIView):
         if (user.init_ability):
             if finishObjTest:
                 usedSbjItems = get_used_sbj_items(req.data)
-                selectedItemId = select_sbj_item(usedSbjItems, req.get('unfinished_test_id'))
+                testWillFinish = check_test_will_finish(unfinished_test_id)
+                selectedItemId = select_sbj_item(usedSbjItems, unfinished_test_id)
                 nextSbjItem = TestItems.objects.get(id=selectedItemId)
                 nextItem = ItemsPartSerializer(nextSbjItem)
-                return Response({"next_item": nextItem.data}, status.HTTP_200_OK)
+                return Response(
+                    {
+                        'next_item': nextItem.data,
+                        'testWillFinish': testWillFinish
+                    }, status.HTTP_200_OK)
             else:
                 usedObjItems = get_used_obj_items(req.data)
                 numpyArray = switch_items_numpy(usedObjItems, 'object')
                 itemIdList = separate_dict('item_id', usedObjItems)
                 mappedList = index_map(numpyArray, itemIdList)
 
-                test_id = req.data['unfinished_test_id']
-                pre_theta = TestInfo.objects.get(test_id=test_id).newest_ability
+                testId = req.data['unfinished_test_id']
+                testInfo = TestInfo.objects.get(test_id=testId)
+                pre_theta = testInfo.newest_ability
                 selector = MaxInfoSelector()
                 firstItemIndex = selector.select(items=numpyArray,
                                                  administered_items=mappedList,
                                                  est_theta=pre_theta)
                 firstItemId = numpyArray[firstItemIndex][5]
                 firstItemQs = TestItems.objects.get(id=firstItemId)
-                next_obj_item = ItemsPartSerializer(firstItemQs)
-                return Response({"next_item": next_obj_item.data}, status.HTTP_200_OK)
+
+                testSettingId = testInfo.test_setting.id
+                testSetting = TestSetting.objects.get(id=testSettingId)
+                objectTotal = testSetting.choice_total + testSetting.judge_total
+                subjectTotal = testSetting.glossary_total + testSetting.saqs_total + testSetting.discuss_total
+                testWillFinish = False
+                if (len(usedObjItems) == objectTotal - 1 and subjectTotal == 0):
+                    testWillFinish = True
+
+                nextObjItem = ItemsPartSerializer(firstItemQs)
+                return Response(
+                    {
+                        'next_item': nextObjItem.data,
+                        'testWillFinish': testWillFinish
+                    }, status.HTTP_200_OK)
         else:
             return Response({
                 'init_finished': False,
@@ -456,13 +491,24 @@ class SubjectTestProcessView(APIView):
     # 客观题完成后，请求该接口获取合适的主观题继续测试
     def get(self, req):
         test_id = int(req.GET.get('test_id'))
-        test_info = TestInfo.objects.get(test_id=test_id)
+        testInfo = TestInfo.objects.get(test_id=test_id)
+        testWillFinish = False
+        testSettingId = testInfo.test_setting.id
+        testSetting = TestSetting.objects.get(id=testSettingId)
+        subjectTotal = testSetting.glossary_total + testSetting.saqs_total + testSetting.discuss_total
+        if subjectTotal <= 1 :
+            testWillFinish = True
+        else:
+            testWillFinish = False
         sbj_processes = SubjectTestProcess.objects.filter(test_id=test_id)
-        if (test_info.finish_object_test and not sbj_processes):
-            selectedItemId = select_sbj_item({})
+        if (testInfo.finish_object_test and not sbj_processes):
+            selectedItemId = select_sbj_item({}, test_id)
             nextSbjItem = TestItems.objects.get(id=selectedItemId)
             nextItem = ItemsPartSerializer(nextSbjItem)
-            return Response(nextItem.data, status.HTTP_200_OK)
+            return Response({
+                'next_item': nextItem.data,
+                'testWillFinish': testWillFinish
+            }, status.HTTP_200_OK)
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
@@ -470,8 +516,12 @@ class SubjectTestProcessView(APIView):
     def post(self, req):
         user_id = decode_token(req)['user_id']
         req.data['user_id'] = user_id
+        test_id = req.data.get('test_id')
+
+        testWillFinish = check_test_will_finish(test_id)
+
         usedSbjItems = get_used_sbj_items(req.data)
-        selectedItemId = select_sbj_item(usedSbjItems, req.get('test_id'))
+        selectedItemId = select_sbj_item(usedSbjItems, test_id)
         if selectedItemId:
             nextSbjItem = TestItems.objects.get(id=selectedItemId)
             testOver = False
@@ -486,7 +536,8 @@ class SubjectTestProcessView(APIView):
             return Response(
                 {
                     'info': recordTest.data,
-                    "next_item": nextItem.data,
-                    'finishAllTest': testOver
+                    'next_item': nextItem.data,
+                    'testWillFinish': testWillFinish,
+                    'testAllFinish': testOver
                 }, status.HTTP_201_CREATED)
         return Response(recordTest.errors, status.HTTP_400_BAD_REQUEST)

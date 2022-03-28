@@ -24,6 +24,13 @@ class TestInfoStartSer(serializers.ModelSerializer):
 
 
 class TestInfoSerializer(serializers.ModelSerializer):
+    test_settings = serializers.SerializerMethodField('get_test_settings')
+
+    def get_test_settings(self, TestInfo):
+        testSettings = TestSetting.objects.get(id=TestInfo.test_setting.id)
+        getTestSettings = TestSettingSerializer(testSettings)
+        return getTestSettings.data
+
     class Meta:
         model = TestInfo
         fields = "__all__"
