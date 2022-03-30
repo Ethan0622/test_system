@@ -4,7 +4,9 @@ from users.models import MyUser
 
 
 class ClassListSerializer(serializers.ModelSerializer):
-    teacher_name = serializers.CharField(source='teacher_id.realname', read_only=True)
+    teacher_name = serializers.CharField(label='管理教师姓名',
+                                         source='teacher_id.realname',
+                                         read_only=True)
 
     class Meta:
         model = MyClass

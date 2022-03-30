@@ -6,6 +6,8 @@ from rest_framework.response import Response
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import AllowAny
 from rest_framework_jwt.settings import api_settings
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 
 from .models import MyUser
 from testing.models import TestInfo
@@ -22,6 +24,21 @@ class userLoginJWTView(APIView):
     authentication_classes = ()
     permission_classes = ()
 
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['number', 'password'],
+        properties={
+            'number': openapi.Schema(type=openapi.TYPE_STRING),
+            'password': openapi.Schema(type=openapi.TYPE_STRING),
+        },
+    ),
+                         responses={
+                             400: 'Bad Request',
+                             404: 'Not found',
+                             200: UserSerializer
+                         },
+                         security=[],
+                         operation_summary='用户登录')
     def post(self, request, *args, **kwargs):
         number = request.data.get('number')
         password = request.data.get('password')
@@ -70,15 +87,30 @@ class userLoginJWTView(APIView):
 class userListView(APIView):
     authentication_classes = (TokenAuthentication, )
     permission_classes = (AllowAny, )
-    '''
-    获取所有用户信息&加入新用户
-    '''
 
+    @swagger_auto_schema(responses={200: UserSerializer},
+                         security=[],
+                         operation_summary='获取所有用户的信息')
     def get(self, req):
         all_user_qs = MyUser.objects.all()
         all_user = UserSerializer(instance=all_user_qs, many=True)
         return Response(all_user.data)
 
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['number', 'password', 'type'],
+        properties={
+            'number': openapi.Schema(type=openapi.TYPE_STRING),
+            'password': openapi.Schema(type=openapi.TYPE_STRING),
+            'type': openapi.Schema(type=openapi.TYPE_NUMBER, enum=[0, 1])
+        },
+    ),
+                         responses={
+                             400: 'Bad Request',
+                             200: UserSerializer
+                         },
+                         security=[],
+                         operation_summary='用户注册')
     def post(self, req):
         create_user = UserSerializer(data=req.data)
         if create_user.is_valid(raise_exception=True):
@@ -88,10 +120,11 @@ class userListView(APIView):
 
 
 class userDetailView(APIView):
-    '''
-    指定id的数据查询、修改、删除
-    '''
-
+    @swagger_auto_schema(responses={
+        404: 'Not Found',
+        200: UserSerializer
+    },
+                         operation_summary='获取指定用户的信息')
     def get(self, req, pk):
         try:
             user = MyUser.objects.get(id=pk)
@@ -101,6 +134,22 @@ class userDetailView(APIView):
         get_user = UserSerializer(instance=user)
         return Response(get_user.data, status.HTTP_200_OK)
 
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        description='仅支持修改下列四个用户信息，要修改啥就保留啥，不改的都删掉',
+        properties={
+            'number': openapi.Schema(type=openapi.TYPE_STRING),
+            'password': openapi.Schema(type=openapi.TYPE_STRING),
+            'realname': openapi.Schema(type=openapi.TYPE_STRING),
+            'email': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+    ),
+                         responses={
+                             400: 'Bad Request',
+                             404: 'Not Found',
+                             200: UserSerializer
+                         },
+                         operation_summary='修改指定用户的信息')
     def put(self, req, pk):
         try:
             user = MyUser.objects.get(id=pk)
@@ -117,6 +166,11 @@ class userDetailView(APIView):
             return Response(update_user.data, status=status.HTTP_200_OK)
         return Response(update_user.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(responses={
+        404: 'Not Found',
+        204: 'No Content'
+    },
+                         operation_summary='删除指定用户')
     def delete(self, req, pk):
         try:
             user = MyUser.objects.get(id=pk)
@@ -128,7 +182,21 @@ class userDetailView(APIView):
 
 
 class checkUserTestsView(APIView):
-
+    @swagger_auto_schema(responses={
+        200:
+        openapi.Response(description='ok',
+                         examples={
+                             'application/json': {
+                                 'isUnfinished': openapi.TYPE_BOOLEAN,
+                                 'unfinishedInfo': {
+                                     'key': openapi.TYPE_NUMBER,
+                                     'start_time': openapi.TYPE_STRING,
+                                     'finish_object_test': openapi.TYPE_BOOLEAN
+                                 }
+                             }
+                         })
+    },
+                         operation_summary='检查用户是否有正在进行的考试')
     def get(self, req):
         unfinished_test_id = None
         now_time = datetime.now()
@@ -169,10 +237,11 @@ class checkUserTestsView(APIView):
 
 
 class userTestsListView(APIView):
-    '''
-    查询一个学生全部的测验记录
-    '''
-
+    @swagger_auto_schema(responses={
+        404: 'Not Found',
+        200: TestsListSerializer
+    },
+                         operation_summary='获取用户全部的测试记录')
     def get(self, req):
         try:
             user_id = decode_token(req)['user_id']

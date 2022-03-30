@@ -37,27 +37,25 @@ class MyUserManager(BaseUserManager):
 
 
 class MyUser(AbstractBaseUser):
-    number = models.CharField(verbose_name='student-ID/employee-ID',
-                              max_length=60,
-                              unique=True)
-    type = models.IntegerField(verbose_name='user-type; 0=student; 1=teacher',
+    number = models.CharField(verbose_name='学号/工号', max_length=60, unique=True)
+    type = models.IntegerField(verbose_name='用户类型：0=学生，1=教师',
                                default=0,
                                validators=[MinValueValidator(0),
                                            MaxValueValidator(1)])
-    realname = models.CharField(verbose_name='user-real-name',
+    realname = models.CharField(verbose_name='用户真实姓名',
                                 null=True,
                                 blank=True,
                                 max_length=100,
                                 default=None)
-    email = models.EmailField(verbose_name='user-email',
+    email = models.EmailField(verbose_name='用户邮箱',
                               max_length=255,
                               null=True,
                               blank=True,
                               default=None)
-    init_ability = models.FloatField(verbose_name='初始化能力值', null=True)
+    init_ability = models.FloatField(verbose_name='初始能力值', null=True)
     joined_class = models.ForeignKey(MyClass, on_delete=SET_NULL, null=True)
-    is_active = models.BooleanField(default=True)
-    is_admin = models.BooleanField(default=False)
+    is_active = models.BooleanField(verbose_name='账号是否激活', default=True)
+    is_admin = models.BooleanField(verbose_name='是否为管理员', default=False)
 
     objects = MyUserManager()
 

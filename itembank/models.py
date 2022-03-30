@@ -6,18 +6,20 @@ from users.models import MyUser
 
 class KnowledgePoints(models.Model):
     # 所属教材哪一章（1-8）
-    chapter = models.IntegerField(null=False)
+    chapter = models.IntegerField(verbose_name='对应教材章节', null=False)
     # 主要知识点是什么
-    content = models.CharField(max_length=255, null=False)
+    content = models.CharField(verbose_name='对应教材内容', max_length=255, null=False)
 
 
 class ItemType(models.Model):
     # 类型名称
-    type_name = models.CharField(max_length=100, null=False)
+    type_name = models.CharField(verbose_name='题型', max_length=100, null=False)
     # 是否是主观题
-    is_subject = models.BooleanField(null=False)
+    is_subject = models.BooleanField(verbose_name='是否为主观题', null=False)
     # 题目总分值
-    total_score = models.IntegerField(null=False, validators=[MinValueValidator(0)])
+    total_score = models.IntegerField(verbose_name='分值',
+                                      null=False,
+                                      validators=[MinValueValidator(0)])
 
 
 class TestItems(models.Model):
@@ -26,23 +28,23 @@ class TestItems(models.Model):
     # 对应知识点
     knowledge_id = models.ForeignKey(KnowledgePoints, on_delete=CASCADE, null=False)
     # 题干信息
-    content = models.TextField(null=False)  # 暂时去掉唯一性，优先保证长度够
+    content = models.TextField(verbose_name='题干', null=False)  # 暂时去掉唯一性，优先保证长度够
     # 参考答案
-    correct = models.TextField(null=False)
+    correct = models.TextField(verbose_name='参考答案', null=False)
     # 题目区分度
-    discrimination = models.FloatField(null=False, default=1)
+    discrimination = models.FloatField(verbose_name='区分度系数', null=False, default=1)
     # 题目难度系数
-    difficulty = models.FloatField(null=False)
+    difficulty = models.FloatField(verbose_name='难度系数', null=False)
     # 题目猜测系数
-    guessing = models.FloatField(null=False, default=0)
+    guessing = models.FloatField(verbose_name='猜测系数', null=False, default=0)
     # 曝光系数
-    exposure = models.FloatField(null=False, default=0)
+    exposure = models.FloatField(verbose_name='曝光系数', null=False, default=0)
 
     # 若type==1，则必须有选项，题目A、B、C、D选项
-    option_A = models.TextField(null=True)
-    option_B = models.TextField(null=True)
-    option_C = models.TextField(null=True)
-    option_D = models.TextField(null=True)
+    option_A = models.TextField(verbose_name='选项A', null=True)
+    option_B = models.TextField(verbose_name='选项B', null=True)
+    option_C = models.TextField(verbose_name='选项C', null=True)
+    option_D = models.TextField(verbose_name='选项D', null=True)
 
 
 class ItemImages(models.Model):
