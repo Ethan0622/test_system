@@ -24,9 +24,15 @@ class ItemType(models.Model):
 
 class TestItems(models.Model):
     # 题目类型
-    type = models.ForeignKey(ItemType, on_delete=DO_NOTHING, null=False)
+    type = models.ForeignKey(ItemType,
+                             on_delete=DO_NOTHING,
+                             verbose_name='题型id',
+                             null=False)
     # 对应知识点
-    knowledge_id = models.ForeignKey(KnowledgePoints, on_delete=CASCADE, null=False)
+    knowledge_id = models.ForeignKey(KnowledgePoints,
+                                     on_delete=CASCADE,
+                                     verbose_name='知识点id',
+                                     null=False)
     # 题干信息
     content = models.TextField(verbose_name='题干', null=False)  # 暂时去掉唯一性，优先保证长度够
     # 参考答案

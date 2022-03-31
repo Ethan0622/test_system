@@ -184,17 +184,25 @@ class userDetailView(APIView):
 class checkUserTestsView(APIView):
     @swagger_auto_schema(responses={
         200:
-        openapi.Response(description='ok',
-                         examples={
-                             'application/json': {
-                                 'isUnfinished': openapi.TYPE_BOOLEAN,
-                                 'unfinishedInfo': {
-                                     'key': openapi.TYPE_NUMBER,
-                                     'start_time': openapi.TYPE_STRING,
-                                     'finish_object_test': openapi.TYPE_BOOLEAN
-                                 }
-                             }
-                         })
+        openapi.Response(
+            description='ok',
+            schema=openapi.Schema(type=openapi.TYPE_OBJECT,
+                                  properties={
+                                      'isUnfinished':
+                                      openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                                      'unfinishedInfo':
+                                      openapi.Schema(
+                                          type=openapi.TYPE_OBJECT,
+                                          properties={
+                                              'key':
+                                              openapi.Schema(type=openapi.TYPE_NUMBER),
+                                              'start_time':
+                                              openapi.Schema(type=openapi.TYPE_STRING),
+                                              'finish_object_test':
+                                              openapi.Schema(type=openapi.TYPE_NUMBER)
+                                          })
+                                  }),
+        )
     },
                          operation_summary='检查用户是否有正在进行的考试')
     def get(self, req):

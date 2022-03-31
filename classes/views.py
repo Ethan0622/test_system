@@ -135,8 +135,9 @@ class classStudentView(APIView):
         students = UserSerializer(allStudent, many=True)
         return Response(students.data, status.HTTP_200_OK)
 
-    # 教师帮助学生创建账号并批量添加进入指定班级
+    @swagger_auto_schema(operation_summary='本接口涉及文件传输，开发人员偷懒不想写了，请自行查看代码')
     def post(self, req, pk):
+        '''教师帮助学生创建账号并批量添加进入指定班级'''
         try:
             theclass = MyClass.objects.get(id=pk)
         except MyClass.DoesNotExist:

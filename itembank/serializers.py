@@ -2,16 +2,6 @@ from rest_framework import serializers
 from .models import TestItems, ItemType, TestPaperInfo, TestPaper
 
 
-class ItemsPartSerializer(serializers.Serializer):
-    id = serializers.IntegerField(read_only=True)
-    type = serializers.PrimaryKeyRelatedField(read_only=True)
-    content = serializers.CharField(read_only=True)
-    option_A = serializers.CharField(read_only=True)
-    option_B = serializers.CharField(read_only=True)
-    option_C = serializers.CharField(read_only=True)
-    option_D = serializers.CharField(read_only=True)
-
-
 class ItemsAllSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestItems
@@ -28,6 +18,7 @@ class ItemsAllSerializer(serializers.ModelSerializer):
             return value
         else:
             return value
+
 
 class ItemTypeSerializer(serializers.ModelSerializer):
     class Meta:
