@@ -37,7 +37,7 @@ class TestInfoSerializer(serializers.ModelSerializer):
 
 
 class TestInfoPartSerializer(serializers.ModelSerializer):
-    un_grade = serializers.SerializerMethodField('is_un_grade_test')
+    un_grade = serializers.SerializerMethodField('is_un_grade_test', label='是否已评分')
 
     def is_un_grade_test(self, TestInfo):
         un_grade = False

@@ -4,15 +4,19 @@ from rest_framework import response
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAdminUser
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 
 from users.models import MyUser
 from .models import TestItems, ItemType, TestPaper, TestPaperInfo
-from .serializers import ItemsAllSerializer, ItemsPartSerializer, TestPaperInfoSerializer, TestPaperSerializer
+from .serializers import ItemsAllSerializer, TestPaperInfoSerializer, TestPaperSerializer
+from testing.serializers import ItemsPartSerializer
 
 from users.utils import decode_token
 
 
 class itemListView(APIView):
+    @swagger_auto_schema(responses={200: 'OK'}, operation_summary='获取每种题型的总题量')
     # 获取每种题型的总题量
     def get(self, req):
         choice_sum = TestItems.objects.filter(type=1).count()
@@ -29,7 +33,39 @@ class itemListView(APIView):
                 'discuss_sum': discuss_sum
             }, status.HTTP_200_OK)
 
-    # 新增试题
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        description='如果是单项选择题则四个选项都需要有',
+        required=[
+            'type', 'knowledge_id', 'content', 'correct', 'difficulty', 'option_A',
+            'option_B', 'option_C', 'option_D'
+        ],
+        properties={
+            'type':
+            openapi.Schema(type=openapi.TYPE_NUMBER, enum=[1, 2, 3, 4, 5]),
+            'knowledge_id':
+            openapi.Schema(type=openapi.TYPE_NUMBER, enum=[1, 2, 3, 4, 5, 6, 7, 8]),
+            'content':
+            openapi.Schema(type=openapi.TYPE_STRING),
+            'correct':
+            openapi.Schema(type=openapi.TYPE_STRING),
+            'difficulty':
+            openapi.Schema(type=openapi.TYPE_NUMBER),
+            'option_A':
+            openapi.Schema(type=openapi.TYPE_STRING),
+            'option_B':
+            openapi.Schema(type=openapi.TYPE_STRING),
+            'option_C':
+            openapi.Schema(type=openapi.TYPE_STRING),
+            'option_D':
+            openapi.Schema(type=openapi.TYPE_STRING),
+        },
+    ),
+                         responses={
+                             400: 'Bad Request',
+                             200: ItemsAllSerializer
+                         },
+                         operation_summary='新增一道题目')
     def post(self, req):
         createItem = ItemsAllSerializer(data=req.data)
         if createItem.is_valid(raise_exception=True):
@@ -39,7 +75,11 @@ class itemListView(APIView):
 
 
 class itemListTypeView(APIView):
-    # 查看指定类型的题目
+    @swagger_auto_schema(responses={
+        404: 'Not Found',
+        200: ItemsAllSerializer
+    },
+                         operation_summary='查看指定类型的所有题目')
     def get(self, req, pk):
         try:
             typeExist = ItemType.objects.get(id=pk)
@@ -51,8 +91,11 @@ class itemListTypeView(APIView):
 
 
 class itemInfoDetailView(APIView):
-    #获取、修改、删除特定id的题目，使用全部题目信息的序列化器（供教师用）
-
+    @swagger_auto_schema(responses={
+        404: 'Not Found',
+        200: ItemsAllSerializer
+    },
+                         operation_summary='查看一道题的全部信息')
     def get(self, req, pk):
         try:
             item = TestItems.objects.get(id=pk)
@@ -61,6 +104,40 @@ class itemInfoDetailView(APIView):
         getItem = ItemsAllSerializer(instance=item)
         return Response(getItem.data, status.HTTP_200_OK)
 
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        description='如果是单项选择题则四个选项都需要有',
+        required=[
+            'type', 'knowledge_id', 'content', 'correct', 'difficulty', 'option_A',
+            'option_B', 'option_C', 'option_D'
+        ],
+        properties={
+            'type':
+            openapi.Schema(type=openapi.TYPE_NUMBER, enum=[1, 2, 3, 4, 5]),
+            'knowledge_id':
+            openapi.Schema(type=openapi.TYPE_NUMBER, enum=[1, 2, 3, 4, 5, 6, 7, 8]),
+            'content':
+            openapi.Schema(type=openapi.TYPE_STRING),
+            'correct':
+            openapi.Schema(type=openapi.TYPE_STRING),
+            'difficulty':
+            openapi.Schema(type=openapi.TYPE_NUMBER),
+            'option_A':
+            openapi.Schema(type=openapi.TYPE_STRING),
+            'option_B':
+            openapi.Schema(type=openapi.TYPE_STRING),
+            'option_C':
+            openapi.Schema(type=openapi.TYPE_STRING),
+            'option_D':
+            openapi.Schema(type=openapi.TYPE_STRING),
+        },
+    ),
+                         responses={
+                             400: 'Bad Request',
+                             404: 'Not Found',
+                             200: ItemsAllSerializer
+                         },
+                         operation_summary='修改一道题目的信息')
     def put(self, req, pk):
         try:
             item = TestItems.objects.get(id=pk)
@@ -72,6 +149,11 @@ class itemInfoDetailView(APIView):
             return Response(updateItem.data, status.HTTP_200_OK)
         return Response(updateItem.errors, status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(responses={
+        404: 'Not Found',
+        204: 'No Content'
+    },
+                         operation_summary='删除一道题')
     def delete(self, req, pk):
         try:
             item = TestItems.objects.get(id=pk)
@@ -82,7 +164,11 @@ class itemInfoDetailView(APIView):
 
 
 class itemDetailView(APIView):
-    # 获取指定id试题，只提供主要题目信息（做题用）
+    @swagger_auto_schema(responses={
+        404: 'Not Found',
+        200: ItemsPartSerializer
+    },
+                         operation_summary='查看一道题的部分信息（只提供做题所需的内容）')
     def get(self, req, pk):
         try:
             item = TestItems.objects.get(id=pk)
@@ -93,8 +179,9 @@ class itemDetailView(APIView):
 
 
 class itemsFileUploadView(APIView):
-
+    @swagger_auto_schema(operation_summary='本接口涉及文件传输，开发人员偷懒不想写了，请自行查看代码')
     def post(self, req):
+        '''通过上传文件批量添加试题'''
         uploadFile = req.FILES['file']
         wb = xlrd.open_workbook(filename=None, file_contents=uploadFile.read())
         table = wb.sheets()[0]
@@ -145,7 +232,7 @@ class itemsFileUploadView(APIView):
 class TestPaperListView(APIView):
     permission_classes = (IsAdminUser, )
 
-    # 创建一份试卷
+    @swagger_auto_schema(operation_summary='创建一份试卷；注意：目前接口不可用', deprecated=True)
     def post(self, req):
         userId = decode_token(req)['user_id']
         reqData = req.data
@@ -160,7 +247,7 @@ class TestPaperListView(APIView):
 class TestPaperDetailView(APIView):
     permission_classes = (IsAdminUser, )
 
-    # 往试卷中添加试题
+    @swagger_auto_schema(operation_summary='往试卷中添加试题；注意：目前接口不可用', deprecated=True)
     def post(self, req, pk):
         try:
             paper = TestPaperInfo.objects.get(id=pk)

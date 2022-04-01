@@ -2,13 +2,15 @@ import math
 from datetime import datetime
 from random import choice
 
-from rest_framework import status
+from rest_framework import status, serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from catsim.selection import MaxInfoSelector
 from catsim.estimation import NumericalSearchEstimator
 from catsim.stopping import MinErrorStopper
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 
 from users.utils import decode_token
 from .utils import get_used_obj_items, get_used_sbj_items, index_map, switch_items_numpy, separate_dict,\
@@ -23,6 +25,8 @@ from itembank.models import TestItems
 
 
 class TestSettingView(APIView):
+    @swagger_auto_schema(responses={200: TestSettingSerializer},
+                         operation_summary='获取已有的考试预设')
     def get(self, req):
         allTestSettingQs = TestSetting.objects.all()
         allTestSettings = TestSettingSerializer(allTestSettingQs, many=True)
@@ -30,7 +34,23 @@ class TestSettingView(APIView):
 
 
 class TestInfoView(APIView):
-    # 开始一次考试
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        description='任选其一：提供test_setting的id或其余五个详细参数',
+        properties={
+            'test_setting': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'choice_total': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'judge_total': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'glossary_total': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'saqs_total': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'discuss_total': openapi.Schema(type=openapi.TYPE_NUMBER),
+        },
+    ),
+                         responses={
+                             400: 'Bad Request',
+                             201: TestInfoStartSer
+                         },
+                         operation_summary='开始一次考试')
     def post(self, req):
         user_id = decode_token(req)['user_id']
         req.data['user_id'] = user_id
@@ -92,6 +112,22 @@ class TestInfoView(APIView):
 
 class TestInfoDetailView(APIView):
     # 查看考试结果，前提：必须是完整的一次考试
+    @swagger_auto_schema(responses={
+        400:
+        'Bad Request',
+        404:
+        'Not Found',
+        200:
+        openapi.Response(description='OK',
+                         examples={
+                             'application/json': {
+                                 'ability': openapi.TYPE_NUMBER,
+                                 'objectItems': [{}],
+                                 'subjectItems': [{}],
+                             }
+                         })
+    },
+                         operation_summary='查看一次考试的结果反馈（该次考试必须完成）')
     def get(self, req, pk):
         try:
             testInfo = TestInfo.objects.get(test_id=pk)
@@ -112,13 +148,14 @@ class TestInfoDetailView(APIView):
                     'subjectItems': subjectItems.data
                 }, status.HTTP_200_OK)
 
-    # 查看某一次考试的配置信息
+    @swagger_auto_schema(responses={200: TestInfoSerializer},
+                         operation_summary='查看某一次考试的配置信息')
     def post(self, req, pk):
         testInfo = TestInfo.objects.get(test_id=pk)
         getTestInfo = TestInfoSerializer(instance=testInfo)
         return Response(getTestInfo.data, status.HTTP_200_OK)
 
-    # 考试过程中信息修改，考试结束等信息的提交
+    @swagger_auto_schema(operation_summary='考试信息的修改，一般不使用该接口', deprecated=True)
     def put(self, req, pk):
         try:
             testInfo = TestInfo.objects.get(test_id=pk)
@@ -133,6 +170,7 @@ class TestInfoDetailView(APIView):
 
 class TestFinishView(APIView):
     # 考试结束信息,提交结束时间以及计算最后能力值
+    @swagger_auto_schema(responses={200: TestInfoFinishSer}, operation_summary='结束一次考试')
     def post(self, req, pk):
         try:
             testInfo = TestInfo.objects.get(test_id=pk)
@@ -152,7 +190,17 @@ class TestFinishView(APIView):
 
 
 class ObjectTestProcessView(APIView):
-    # 考生完成能力测评后，正式开始客观题测试部分，此接口拿到第一道客观题
+    test_id = openapi.Parameter('test_id',
+                                required=True,
+                                in_=openapi.IN_QUERY,
+                                description='考试记录Id',
+                                type=openapi.TYPE_NUMBER)
+
+    @swagger_auto_schema(manual_parameters=[test_id],
+                         responses={
+                             200: ItemsPartSerializer,
+                         },
+                         operation_summary='正式测试时获取第一道客观题')
     def get(self, req):
         test_id = int(req.GET.get('test_id'))
         user_id = decode_token(req)['user_id']
@@ -166,10 +214,39 @@ class ObjectTestProcessView(APIView):
                                              est_theta=user.init_ability)
             firstItemId = numpyArray[firstItemIndex][5]
             firstItemQs = TestItems.objects.get(id=firstItemId)
-            first_item = ItemsPartSerializer(firstItemQs)
+            first_item = ItemsPartSerializer(instance=firstItemQs)
             return Response(first_item.data, status.HTTP_200_OK)
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['item_id', 'answer', 'test_id'],
+        properties={
+            'item_id': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'answer': openapi.Schema(type=openapi.TYPE_STRING),
+            'test_id': openapi.Schema(type=openapi.TYPE_NUMBER),
+        },
+    ),
+                         responses={
+                             400:
+                             'Bad Request',
+                             201:
+                             openapi.Response(description='OK',
+                                              examples={
+                                                  'application/json': {
+                                                      'info': {},
+                                                      'next_item': {},
+                                                      'finishObjTest':
+                                                      openapi.TYPE_BOOLEAN,
+                                                      'testWillFinish':
+                                                      openapi.TYPE_BOOLEAN,
+                                                      'testAllFinish':
+                                                      openapi.TYPE_BOOLEAN
+                                                  }
+                                              })
+                         },
+                         operation_summary='提交客观题答案，并获取下一题')
 
     # 正式考试过程中做题的记录，记录客观题答案并评判得分，修正能力值。接着给出下一题
     def post(self, req):
@@ -264,6 +341,29 @@ class ObjectTestProcessView(APIView):
 
 
 class InitTestProcessView(APIView):
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['item_id', 'answer', 'test_id'],
+        properties={
+            'item_id': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'answer': openapi.Schema(type=openapi.TYPE_STRING),
+            'test_id': openapi.Schema(type=openapi.TYPE_NUMBER),
+        },
+    ),
+                         responses={
+                             400:
+                             'Bad Request',
+                             201:
+                             openapi.Response(description='OK',
+                                              examples={
+                                                  'application/json': {
+                                                      'init_finished':
+                                                      openapi.TYPE_BOOLEAN,
+                                                      'init_ability': openapi.TYPE_NUMBER,
+                                                  }
+                                              }),
+                         },
+                         operation_summary='能力评估测试：提交客观题答案，并获取下一题')
     # 第一次考试，初始能力评估阶段答题处理，记录答题并返回下一道题目
     def post(self, req):
         user_id = decode_token(req)['user_id']
@@ -362,6 +462,22 @@ class InitTestProcessView(APIView):
                 return Response({'next_item': init_next_item.data},
                                 status.HTTP_201_CREATED)
 
+    test_id = openapi.Parameter('test_id',
+                                required=True,
+                                in_=openapi.IN_QUERY,
+                                description='考试记录Id',
+                                type=openapi.TYPE_NUMBER)
+
+    @swagger_auto_schema(manual_parameters=[test_id],
+                         responses={
+                             200:
+                             openapi.Response(
+                                 description='OK',
+                                 examples={'application/json': {
+                                     'next_item': {},
+                                 }}),
+                         },
+                         operation_summary='能力评估测试：获取客观题题目(resume时调用)')
     #未完成初始能力测试，需要继续完成时调用此get请求，只返回相应题目
     def get(self, req):
         test_id = int(req.GET.get('test_id'))
@@ -432,7 +548,27 @@ class InitTestProcessView(APIView):
 
 
 class TestContinueView(APIView):
-    # 未完成的考试继续进行测试
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['unfinished_test_id'],
+        properties={
+            'unfinished_test_id': openapi.Schema(type=openapi.TYPE_NUMBER),
+        },
+    ),
+                         responses={
+                             400:
+                             'Bad Request',
+                             200:
+                             openapi.Response(description='OK',
+                                              examples={
+                                                  'application/json': {
+                                                      'next_item': {},
+                                                      'testWillFinish':
+                                                      openapi.TYPE_BOOLEAN
+                                                  }
+                                              }),
+                         },
+                         operation_summary='未完成的考试继续测试，获取题目')
     def post(self, req):
         user_id = decode_token(req)['user_id']
         user = MyUser.objects.get(id=user_id)
@@ -488,7 +624,25 @@ class TestContinueView(APIView):
 
 
 class SubjectTestProcessView(APIView):
-    # 客观题完成后，请求该接口获取合适的主观题继续测试
+    test_id = openapi.Parameter('test_id',
+                                required=True,
+                                in_=openapi.IN_QUERY,
+                                description='考试记录Id',
+                                type=openapi.TYPE_NUMBER)
+
+    @swagger_auto_schema(manual_parameters=[test_id],
+                         responses={
+                             200:
+                             openapi.Response(description='OK',
+                                              examples={
+                                                  'application/json': {
+                                                      'next_item': {},
+                                                      'testWillFinish':
+                                                      openapi.TYPE_BOOLEAN
+                                                  }
+                                              }),
+                         },
+                         operation_summary='正式测试时，客观题完成后获取第一道主观题')
     def get(self, req):
         test_id = int(req.GET.get('test_id'))
         testInfo = TestInfo.objects.get(test_id=test_id)
@@ -496,7 +650,7 @@ class SubjectTestProcessView(APIView):
         testSettingId = testInfo.test_setting.id
         testSetting = TestSetting.objects.get(id=testSettingId)
         subjectTotal = testSetting.glossary_total + testSetting.saqs_total + testSetting.discuss_total
-        if subjectTotal <= 1 :
+        if subjectTotal <= 1:
             testWillFinish = True
         else:
             testWillFinish = False
@@ -512,7 +666,32 @@ class SubjectTestProcessView(APIView):
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
-    # 提交做完的主观题答案，并获取下一道主观题或结束测试
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['item_id', 'answer', 'test_id'],
+        properties={
+            'item_id': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'answer': openapi.Schema(type=openapi.TYPE_STRING),
+            'test_id': openapi.Schema(type=openapi.TYPE_NUMBER),
+        },
+    ),
+                         responses={
+                             400:
+                             'Bad Request',
+                             201:
+                             openapi.Response(description='OK',
+                                              examples={
+                                                  'application/json': {
+                                                      'info': {},
+                                                      'next_item': {},
+                                                      'testWillFinish':
+                                                      openapi.TYPE_BOOLEAN,
+                                                      'testAllFinish':
+                                                      openapi.TYPE_BOOLEAN
+                                                  }
+                                              }),
+                         },
+                         operation_summary='提交主观题答案，并获取下一题')
     def post(self, req):
         user_id = decode_token(req)['user_id']
         req.data['user_id'] = user_id

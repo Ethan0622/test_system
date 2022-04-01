@@ -1,3 +1,4 @@
+from cProfile import label
 from django.contrib.auth.hashers import make_password
 from rest_framework import serializers
 from .models import MyUser
@@ -31,8 +32,8 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class TestsListSerializer(serializers.Serializer):
-    test_id = serializers.IntegerField(read_only=True)
-    start_time = serializers.DateTimeField(read_only=True)
-    end_time = serializers.DateTimeField(read_only=True)
-    total_time = serializers.DurationField(read_only=True)
-    final_ability = serializers.CharField(read_only=True)
+    test_id = serializers.IntegerField(label='考试记录id', read_only=True)
+    start_time = serializers.DateTimeField(label='考试开始时间', read_only=True)
+    end_time = serializers.DateTimeField(label='考试结束时间', read_only=True)
+    total_time = serializers.DurationField(label='考试总用时', read_only=True)
+    final_ability = serializers.CharField(label='考试最终能力估计值', read_only=True)
