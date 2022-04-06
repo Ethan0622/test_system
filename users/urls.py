@@ -8,7 +8,6 @@ urlpatterns = [
     path('user_detail/<int:pk>/', views.userDetailView.as_view()),
     path('user_tests_list/', views.userTestsListView.as_view()),
     path('user_check_tests/', views.checkUserTestsView.as_view()),
-
     # path('user_login/', obtain_jwt_token)
     path('user_login/', views.userLoginJWTView.as_view())
 ]

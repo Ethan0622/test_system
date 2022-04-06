@@ -1,6 +1,5 @@
 import xlrd
 from rest_framework import status
-from rest_framework import response
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAdminUser
@@ -11,7 +10,6 @@ from users.models import MyUser
 from .models import TestItems, ItemType, TestPaper, TestPaperInfo
 from .serializers import ItemsAllSerializer, TestPaperInfoSerializer, TestPaperSerializer
 from testing.serializers import ItemsPartSerializer
-
 from users.utils import decode_token
 
 
@@ -67,11 +65,11 @@ class itemListView(APIView):
                          },
                          operation_summary='新增一道题目')
     def post(self, req):
-        createItem = ItemsAllSerializer(data=req.data)
-        if createItem.is_valid(raise_exception=True):
-            createItem.save()
-            return Response(createItem.data, status.HTTP_201_CREATED)
-        return Response(createItem.errors, status.HTTP_400_BAD_REQUEST)
+        create_item = ItemsAllSerializer(data=req.data)
+        if create_item.is_valid(raise_exception=True):
+            create_item.save()
+            return Response(create_item.data, status.HTTP_201_CREATED)
+        return Response(create_item.errors, status.HTTP_400_BAD_REQUEST)
 
 
 class itemListTypeView(APIView):
@@ -82,12 +80,12 @@ class itemListTypeView(APIView):
                          operation_summary='查看指定类型的所有题目')
     def get(self, req, pk):
         try:
-            typeExist = ItemType.objects.get(id=pk)
+            type_exist = ItemType.objects.get(id=pk)
         except ItemType.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        typeItemQS = TestItems.objects.filter(type=pk)
-        typeItemList = ItemsAllSerializer(instance=typeItemQS, many=True)
-        return Response(typeItemList.data, status.HTTP_200_OK)
+        type_items_qs = TestItems.objects.filter(type=pk)
+        type_items = ItemsAllSerializer(instance=type_items_qs, many=True)
+        return Response(type_items.data, status.HTTP_200_OK)
 
 
 class itemInfoDetailView(APIView):
@@ -101,8 +99,8 @@ class itemInfoDetailView(APIView):
             item = TestItems.objects.get(id=pk)
         except TestItems.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        getItem = ItemsAllSerializer(instance=item)
-        return Response(getItem.data, status.HTTP_200_OK)
+        get_item = ItemsAllSerializer(instance=item)
+        return Response(get_item.data, status.HTTP_200_OK)
 
     @swagger_auto_schema(request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
@@ -143,11 +141,11 @@ class itemInfoDetailView(APIView):
             item = TestItems.objects.get(id=pk)
         except TestItems.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        updateItem = ItemsAllSerializer(instance=item, data=req.data, partial=True)
-        if updateItem.is_valid(raise_exception=True):
-            updateItem.save()
-            return Response(updateItem.data, status.HTTP_200_OK)
-        return Response(updateItem.errors, status.HTTP_400_BAD_REQUEST)
+        update_item = ItemsAllSerializer(instance=item, data=req.data, partial=True)
+        if update_item.is_valid(raise_exception=True):
+            update_item.save()
+            return Response(update_item.data, status.HTTP_200_OK)
+        return Response(update_item.errors, status.HTTP_400_BAD_REQUEST)
 
     @swagger_auto_schema(responses={
         404: 'Not Found',
@@ -174,16 +172,16 @@ class itemDetailView(APIView):
             item = TestItems.objects.get(id=pk)
         except TestItems.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        getItem = ItemsPartSerializer(instance=item)
-        return Response(getItem.data, status.HTTP_200_OK)
+        get_item = ItemsPartSerializer(instance=item)
+        return Response(get_item.data, status.HTTP_200_OK)
 
 
 class itemsFileUploadView(APIView):
     @swagger_auto_schema(operation_summary='本接口涉及文件传输，开发人员偷懒不想写了，请自行查看代码')
     def post(self, req):
         '''通过上传文件批量添加试题'''
-        uploadFile = req.FILES['file']
-        wb = xlrd.open_workbook(filename=None, file_contents=uploadFile.read())
+        upload_file = req.FILES['file']
+        wb = xlrd.open_workbook(filename=None, file_contents=upload_file.read())
         table = wb.sheets()[0]
         rows = table.nrows
         cols = table.ncols
@@ -194,7 +192,7 @@ class itemsFileUploadView(APIView):
             'type', "difficulty", "knowledge_id", "content", "correct", "option_A",
             "option_B", "option_C", "option_D"
         ]
-        createErrors = []
+        create_errors = []
         for i in range(1, rows):
             row = table.row_values(i)
             if '' in row[:5]:
@@ -203,18 +201,18 @@ class itemsFileUploadView(APIView):
                 return Response({'error': '部分选择题的选项未填写，请检查'}, status.HTTP_400_BAD_REQUEST)
             elif row[0] != 1:
                 row = row[:5]
-            itemInfo = dict(zip(item_key, row))
-            createItem = ItemsAllSerializer(data=itemInfo)
-            if createItem.is_valid():
+            item_info = dict(zip(item_key, row))
+            create_item = ItemsAllSerializer(data=item_info)
+            if create_item.is_valid():
                 pass
             else:
-                if 'content' in createItem.errors.keys():
-                    createErrors.append("题目重复，提交的excel题目中第{}题在题库中已有".format(str(i)))
+                if 'content' in create_item.errors.keys():
+                    create_errors.append("题目重复，提交的excel题目中第{}题在题库中已有".format(str(i)))
                 else:
-                    createErrors.append("将题目插入数据库时出错，错误原因：{}".format(
-                        list(createItem.errors.values())[0][0]))
-        if len(createErrors):
-            return Response({'errors': createErrors}, status.HTTP_400_BAD_REQUEST)
+                    create_errors.append("将题目插入数据库时出错，错误原因：{}".format(
+                        list(create_item.errors.values())[0][0]))
+        if len(create_errors):
+            return Response({'errors': create_errors}, status.HTTP_400_BAD_REQUEST)
         else:
             for i in range(1, rows):
                 row = table.row_values(i)
@@ -222,10 +220,10 @@ class itemsFileUploadView(APIView):
                 row = row[:5] if row[0] != 1 else row  # 只有选择题有选项
                 row[4] = int(
                     row[4]) if row[0] == 2 else row[4]  # 保证判断题的正确答案是整数形式的字符串，不能有小数点
-                itemInfo = dict(zip(item_key, row))
-                createItem = ItemsAllSerializer(data=itemInfo)
-                createItem.is_valid()
-                createItem.save()
+                item_info = dict(zip(item_key, row))
+                create_item = ItemsAllSerializer(data=item_info)
+                create_item.is_valid()
+                create_item.save()
             return Response({'msg': '所有题目保存完成'}, status=status.HTTP_200_OK)
 
 
@@ -234,14 +232,14 @@ class TestPaperListView(APIView):
 
     @swagger_auto_schema(operation_summary='创建一份试卷；注意：目前接口不可用', deprecated=True)
     def post(self, req):
-        userId = decode_token(req)['user_id']
-        reqData = req.data
-        reqData['paper_teacher'] = userId
-        createPaper = TestPaperInfoSerializer(data=req.data)
-        if createPaper.is_valid(raise_exception=True):
-            createPaper.save()
-            return Response(createPaper.data, status.HTTP_201_CREATED)
-        return Response(createPaper.errors, status.HTTP_400_BAD_REQUEST)
+        user_id = decode_token(req)['user_id']
+        req_data = req.data
+        req_data['paper_teacher'] = user_id
+        create_paper = TestPaperInfoSerializer(data=req.data)
+        if create_paper.is_valid(raise_exception=True):
+            create_paper.save()
+            return Response(create_paper.data, status.HTTP_201_CREATED)
+        return Response(create_paper.errors, status.HTTP_400_BAD_REQUEST)
 
 
 class TestPaperDetailView(APIView):
@@ -253,15 +251,15 @@ class TestPaperDetailView(APIView):
             paper = TestPaperInfo.objects.get(id=pk)
         except TestPaperInfo.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        reqData = req.data
-        reqData['paper_id'] = paper.id
-        for itemId in req.data['item_id']:
+        req_data = req.data
+        req_data['paper_id'] = paper.id
+        for item_id in req.data['item_id']:
             try:
-                item = TestItems.objects.get(id=itemId)
+                item = TestItems.objects.get(id=item_id)
             except TestItems.DoesNotExist:
                 return Response(status=status.HTTP_400_BAD_REQUEST)
-            reqData['item_id'] = item.id
-            addItemIntoPaper = TestPaperSerializer(data=reqData)
-            if addItemIntoPaper.is_valid(raise_exception=True):
-                addItemIntoPaper.save()
+            req_data['item_id'] = item.id
+            add_item_into_paper = TestPaperSerializer(data=req_data)
+            if add_item_into_paper.is_valid(raise_exception=True):
+                add_item_into_paper.save()
         return Response({'msg': '所选题目已添加到试卷中'}, status.HTTP_201_CREATED)

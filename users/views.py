@@ -61,10 +61,10 @@ class userLoginJWTView(APIView):
         for item in tests_info_qs:
             if (not item.end_time):
                 if ((now_time - item.start_time) > timedelta(hours=2)):
-                    autoFinishTest = TestInfoFinishSer(
+                    auto_finish_test = TestInfoFinishSer(
                         instance=item, data={'total_time': timedelta(hours=2)})
-                    if autoFinishTest.is_valid(raise_exception=True):
-                        autoFinishTest.save()
+                    if auto_finish_test.is_valid(raise_exception=True):
+                        auto_finish_test.save()
                 else:
                     total_time_list.append({
                         'id': item.test_id,
@@ -92,9 +92,9 @@ class userListView(APIView):
                          security=[],
                          operation_summary='获取所有用户的信息')
     def get(self, req):
-        all_user_qs = MyUser.objects.all()
-        all_user = UserSerializer(instance=all_user_qs, many=True)
-        return Response(all_user.data)
+        all_users_qs = MyUser.objects.all()
+        all_users = UserSerializer(instance=all_users_qs, many=True)
+        return Response(all_users.data)
 
     @swagger_auto_schema(request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
@@ -214,10 +214,10 @@ class checkUserTestsView(APIView):
         for item in tests_info_qs:
             if (not item.end_time):
                 if ((now_time - item.start_time) > timedelta(hours=2)):
-                    autoFinishTest = TestInfoFinishSer(
+                    auto_finish_test = TestInfoFinishSer(
                         instance=item, data={'total_time': timedelta(hours=2)})
-                    if autoFinishTest.is_valid(raise_exception=True):
-                        autoFinishTest.save()
+                    if auto_finish_test.is_valid(raise_exception=True):
+                        auto_finish_test.save()
                 else:
                     total_time_list.append({
                         'id': item.test_id,

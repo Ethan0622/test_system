@@ -10,10 +10,3 @@ class MyClass(models.Model):
                                        unique=True,
                                        null=False)
     teacher_id = models.ForeignKey(to="users.MyUser", on_delete=CASCADE, null=False)
-    # students = models.ManyToManyField(MyUser, through='Classroom')
-
-
-# class Classroom(models.Model):
-#     theclass = models.ForeignKey(MyClass, on_delete=CASCADE)
-#     thestudent = models.ForeignKey(MyUser, on_delete=CASCADE)
-#     date_joined = models.DateField(auto_now_add=True)

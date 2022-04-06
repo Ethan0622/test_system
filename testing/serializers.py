@@ -121,7 +121,6 @@ class ItemInfoSerializer(serializers.ModelSerializer):
 
 class ObjectResultSerializer(serializers.ModelSerializer):
     item_content = serializers.CharField(source='item_id.content', read_only=True)
-    # item_correct = serializers.CharField(source='item_id.correct', read_only=True)
     item_correct = serializers.SerializerMethodField('get_item_correct')
     answer_content = serializers.SerializerMethodField('get_option')
 
@@ -135,8 +134,8 @@ class ObjectResultSerializer(serializers.ModelSerializer):
                 'D': item.option_D
             }
             try:
-                correctContent = switch[item.correct]
-                return item.correct + '、' + correctContent
+                correct_content = switch[item.correct]
+                return item.correct + '、' + correct_content
             except KeyError as e:
                 return item.correct
         else:
@@ -152,8 +151,8 @@ class ObjectResultSerializer(serializers.ModelSerializer):
                 'D': item.option_D
             }
             try:
-                answerContent = switch[ObjectTestProcess.answer]
-                return ObjectTestProcess.answer + '、' + answerContent
+                answer_content = switch[ObjectTestProcess.answer]
+                return ObjectTestProcess.answer + '、' + answer_content
             except KeyError as e:
                 return ObjectTestProcess.answer
         else:

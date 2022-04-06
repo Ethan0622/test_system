@@ -27,8 +27,8 @@ class classListView(APIView):
                          operation_summary='教师获取创建的所有班级')
     def get(self, req):
         user_id = decode_token(req)['user_id']
-        allClass = MyClass.objects.filter(teacher_id=user_id)
-        classes = ClassListSerializer(allClass, many=True)
+        all_class_qs = MyClass.objects.filter(teacher_id=user_id)
+        classes = ClassListSerializer(all_class_qs, many=True)
         return Response(classes.data, status.HTTP_200_OK)
 
     @swagger_auto_schema(request_body=openapi.Schema(
@@ -44,17 +44,17 @@ class classListView(APIView):
                          },
                          operation_summary='教师创建一个新班级')
     def post(self, req):
-        postData = {}
+        post_data = {}
         user_id = decode_token(req)['user_id']
         invitation_code = generate_invitation_code()
-        postData['teacher_id'] = user_id
-        postData['class_name'] = req.data['class_name']
-        postData['invitation_code'] = invitation_code
-        createClass = ClassListSerializer(data=postData)
-        if createClass.is_valid(raise_exception=True):
-            createClass.save()
-            return Response(createClass.data, status.HTTP_201_CREATED)
-        return Response(createClass.errors, status.HTTP_400_BAD_REQUEST)
+        post_data['teacher_id'] = user_id
+        post_data['class_name'] = req.data['class_name']
+        post_data['invitation_code'] = invitation_code
+        create_class = ClassListSerializer(data=post_data)
+        if create_class.is_valid(raise_exception=True):
+            create_class.save()
+            return Response(create_class.data, status.HTTP_201_CREATED)
+        return Response(create_class.errors, status.HTTP_400_BAD_REQUEST)
 
 
 class classInfoView(APIView):
@@ -66,14 +66,14 @@ class classInfoView(APIView):
     def get(self, req):
         user_id = decode_token(req)['user_id']
         user = MyUser.objects.get(id=user_id)
-        classId = None
+        class_id = None
         if user.type == 0 and user.joined_class:
-            classId = user.joined_class.id
+            class_id = user.joined_class.id
         else:
             return Response({}, status.HTTP_404_NOT_FOUND)
-        theclass = MyClass.objects.get(id=classId)
-        classInfo = ClassListSerializer(theclass)
-        return Response(classInfo.data, status.HTTP_200_OK)
+        theclass = MyClass.objects.get(id=class_id)
+        class_info = ClassListSerializer(theclass)
+        return Response(class_info.data, status.HTTP_200_OK)
 
     @swagger_auto_schema(request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
@@ -131,8 +131,8 @@ class classStudentView(APIView):
             theclass = MyClass.objects.get(id=pk)
         except MyClass.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        allStudent = MyUser.objects.filter(joined_class=theclass)
-        students = UserSerializer(allStudent, many=True)
+        students_qs = MyUser.objects.filter(joined_class=theclass)
+        students = UserSerializer(students_qs, many=True)
         return Response(students.data, status.HTTP_200_OK)
 
     @swagger_auto_schema(operation_summary='本接口涉及文件传输，开发人员偷懒不想写了，请自行查看代码')
@@ -142,8 +142,8 @@ class classStudentView(APIView):
             theclass = MyClass.objects.get(id=pk)
         except MyClass.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        uploadFile = req.FILES['file']
-        wb = xlrd.open_workbook(filename=None, file_contents=uploadFile.read())
+        upload_file = req.FILES['file']
+        wb = xlrd.open_workbook(filename=None, file_contents=upload_file.read())
         table = wb.sheets()[0]
         rows = table.nrows
         cols = table.ncols
@@ -152,7 +152,7 @@ class classStudentView(APIView):
                             status.HTTP_400_BAD_REQUEST)
         user_key = ['number', "realname", "type", 'password', "joined_class"]
 
-        existUserList = []
+        exist_user_list = []
         for i in range(1, rows):
             row = table.row_values(i)
             row[0] = int(row[0])
@@ -160,13 +160,13 @@ class classStudentView(APIView):
                 return Response({'errors': ['部分学生的信息未填写，请检查']},
                                 status.HTTP_400_BAD_REQUEST)
             row = row + [0, '123456', theclass.id]
-            userInfo = dict(zip(user_key, row))
-            createUser = UserSerializer(data=userInfo)
-            if createUser.is_valid():
-                createUser.save()
+            user_info = dict(zip(user_key, row))
+            create_user = UserSerializer(data=user_info)
+            if create_user.is_valid():
+                create_user.save()
             else:
-                existUserList.append(row[0])
-        return Response({'warnings': existUserList}, status=status.HTTP_200_OK)
+                exist_user_list.append(row[0])
+        return Response({'warnings': exist_user_list}, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
@@ -183,14 +183,14 @@ class classStudentView(APIView):
                          operation_summary='教师重置某个学生的密码')
     def put(self, req, pk):
         student_id = req.data.get('student_id')
-        rePassword = req.data.get('repassword')
-        if student_id and rePassword:
+        repassword = req.data.get('repassword')
+        if student_id and repassword:
             try:
                 thestudent = MyUser.objects.get(id=student_id)
             except MyUser.DoesNotExist:
                 return Response(status=status.HTTP_404_NOT_FOUND)
             if thestudent.joined_class and thestudent.joined_class.id == pk:
-                thestudent.password = make_password(rePassword)
+                thestudent.password = make_password(repassword)
                 thestudent.save()
                 return Response({'msg': '重置成功'}, status.HTTP_200_OK)
             else:
@@ -249,9 +249,8 @@ class classDetailView(APIView):
                             item.total_time = timedelta(hours=2)
                             item.save()
 
-            all_tests_qs = TestInfo.objects.filter(user_id=student_id)
-            all_test = TestInfoPartSerializer(all_tests_qs, many=True)
-            return Response(all_test.data, status.HTTP_200_OK)
+            all_tests = TestInfoPartSerializer(all_tests_qs, many=True)
+            return Response(all_tests.data, status.HTTP_200_OK)
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
@@ -278,9 +277,10 @@ class classTestView(APIView):
     },
                          operation_summary='教师获取班级中一个学生的某次考试的主观题回答')
     def get(self, req, pk):
-        sbj_test_process_qs = SubjectTestProcess.objects.filter(test_id=pk)
-        sbj_test_process = SbjTestProcessDetailSerializer(sbj_test_process_qs, many=True)
-        return Response(sbj_test_process.data, status.HTTP_200_OK)
+        sbj_test_processes_qs = SubjectTestProcess.objects.filter(test_id=pk)
+        sbj_test_processes = SbjTestProcessDetailSerializer(sbj_test_processes_qs,
+                                                            many=True)
+        return Response(sbj_test_processes.data, status.HTTP_200_OK)
 
     @swagger_auto_schema(request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
@@ -297,12 +297,12 @@ class classTestView(APIView):
                          },
                          operation_summary='教师对主观题回答评分')
     def post(self, req, pk):
-        sbjProcessId = req.data['subject_id']
-        sbjProcess = SubjectTestProcess.objects.get(id=sbjProcessId)
-        if sbjProcess.test_id.test_id == pk:
-            saveSbjScore = SbjTestProcessSerializer(sbjProcess, req.data, partial=True)
-            if saveSbjScore.is_valid(raise_exception=True):
-                saveSbjScore.save()
-                return Response(saveSbjScore.data, status.HTTP_200_OK)
+        sbj_process_id = req.data['subject_id']
+        sbj_process = SubjectTestProcess.objects.get(id=sbj_process_id)
+        if sbj_process.test_id.test_id == pk:
+            save_sbj_score = SbjTestProcessSerializer(sbj_process, req.data, partial=True)
+            if save_sbj_score.is_valid(raise_exception=True):
+                save_sbj_score.save()
+                return Response(save_sbj_score.data, status.HTTP_200_OK)
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)

@@ -14,5 +14,4 @@ class ClassListSerializer(serializers.ModelSerializer):
             'id', 'class_name', 'create_time', 'invitation_code', 'teacher_id',
             'teacher_name'
         ]
-        # read_only_fields = ['id', 'teacher_name']
         read_only_fields = ('id', )
